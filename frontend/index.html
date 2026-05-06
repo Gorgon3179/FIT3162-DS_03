@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonashVote – Page Index</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root { --navy: #002a5c; --blue: #006dae; --light: #f4f7fb; --border: #d6e0f0; --muted: #6b7a99; --text: #1a2233; }
+  body { font-family: 'DM Sans', sans-serif; background: var(--light); min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 40px; }
+  .card { background: white; border-radius: 20px; padding: 48px; max-width: 560px; width: 100%; border: 1px solid var(--border); box-shadow: 0 8px 40px rgba(0,42,92,0.12); }
+  .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
+  .logo-mark { width: 40px; height: 40px; background: var(--navy); border-radius: 10px; display: grid; place-items: center; font-family: 'DM Serif Display', serif; color: white; font-size: 20px; }
+  .logo-text { font-size: 18px; font-weight: 600; color: var(--navy); }
+  h1 { font-family: 'DM Serif Display', serif; font-size: 24px; color: var(--navy); margin-bottom: 6px; }
+  p { font-size: 13px; color: var(--muted); margin-bottom: 28px; line-height: 1.5; }
+  .section-title { font-size: 11px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 10px; }
+  .link-list { display: flex; flex-direction: column; gap: 8px; margin-bottom: 24px; }
+  a.page-link {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 16px; border-radius: 10px; border: 1.5px solid var(--border);
+    text-decoration: none; color: var(--text); transition: all 0.15s;
+  }
+  a.page-link:hover { border-color: var(--blue); background: rgba(0,109,174,0.04); }
+  .link-label { font-size: 14px; font-weight: 600; }
+  .link-file { font-size: 11px; color: var(--muted); }
+  .arrow { color: var(--muted); font-size: 16px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo"><div class="logo-mark">M</div><div class="logo-text">MonashVote</div></div>
+  <h1>Page Navigator</h1>
+  <p>All 7 wireframe pages are implemented below. Click any link to view the page.</p>
+
+  <div class="section-title">Voter Flow</div>
+  <div class="link-list">
+    <a class="page-link" href="login.html"><span class="link-label">1. Login / Signup</span><span class="link-file">login.html ›</span></a>
+    <a class="page-link" href="verification.html"><span class="link-label">2. Email Verification</span><span class="link-file">verification.html ›</span></a>
+    <a class="page-link" href="traits.html"><span class="link-label">3. Personal Trait Form</span><span class="link-file">traits.html ›</span></a>
+    <a class="page-link" href="dashboard.html"><span class="link-label">4. Voter Dashboard</span><span class="link-file">dashboard.html ›</span></a>
+    <a class="page-link" href="vote.html"><span class="link-label">6. Vote (IRV Ranked Choice)</span><span class="link-file">vote.html ›</span></a>
+  </div>
+
+  <div class="section-title">Admin Flow</div>
+  <div class="link-list">
+    <a class="page-link" href="dashboard-admin.html"><span class="link-label">5. Admin Dashboard</span><span class="link-file">dashboard-admin.html ›</span></a>
+    <a class="page-link" href="results.html"><span class="link-label">7. Results & Visualisation</span><span class="link-file">results.html ›</span></a>
+  </div>
+</div>
+</body>
+</html>

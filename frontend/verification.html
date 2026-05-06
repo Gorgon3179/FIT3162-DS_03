@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonashVote – Verification</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #002a5c;
+    --blue: #006dae;
+    --accent: #00aad2;
+    --light: #f4f7fb;
+    --white: #ffffff;
+    --text: #1a2233;
+    --muted: #6b7a99;
+    --border: #d6e0f0;
+    --shadow: 0 8px 40px rgba(0,42,92,0.12);
+  }
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--light);
+    min-height: 100vh;
+    display: flex; align-items: center; justify-content: center;
+    background-image: radial-gradient(ellipse at 20% 80%, rgba(0,109,174,0.12) 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 10%, rgba(0,170,210,0.10) 0%, transparent 55%);
+  }
+  .card {
+    background: var(--white);
+    border-radius: 20px;
+    padding: 52px 48px;
+    width: 420px;
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border);
+    text-align: center;
+    animation: fadeUp 0.5s ease both;
+  }
+  @keyframes fadeUp {
+    from { opacity:0; transform: translateY(20px); }
+    to   { opacity:1; transform: translateY(0); }
+  }
+  .icon-wrap {
+    width: 72px; height: 72px;
+    background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 24px;
+  }
+  .icon-wrap svg { width: 32px; height: 32px; fill: none; stroke: white; stroke-width: 2; stroke-linecap: round; }
+  h1 {
+    font-family: 'DM Serif Display', serif;
+    font-size: 28px; color: var(--navy); margin-bottom: 8px;
+  }
+  .subtitle { font-size: 14px; color: var(--muted); margin-bottom: 8px; }
+  .email-hint { font-size: 13px; font-weight: 600; color: var(--blue); margin-bottom: 32px; }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 10px; text-align: left; }
+  .code-row {
+    display: flex; gap: 10px; justify-content: center; margin-bottom: 24px;
+  }
+  .code-input {
+    width: 52px; height: 60px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    text-align: center;
+    font-size: 22px; font-weight: 600; color: var(--navy);
+    font-family: 'DM Sans', sans-serif;
+    background: var(--light);
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  .code-input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0,109,174,0.12); background: white; }
+  .btn {
+    width: 100%; padding: 14px;
+    background: var(--navy); color: white;
+    border: none; border-radius: 10px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 15px; font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.1s;
+  }
+  .btn:hover { background: var(--blue); }
+  .btn:active { transform: scale(0.98); }
+  .resend { margin-top: 20px; font-size: 13px; color: var(--muted); }
+  .resend a { color: var(--blue); font-weight: 500; cursor: pointer; text-decoration: none; }
+  .resend a:hover { text-decoration: underline; }
+  .back { margin-top: 16px; font-size: 13px; }
+  .back a { color: var(--muted); text-decoration: none; }
+  .back a:hover { color: var(--navy); }
+  .timer { color: var(--accent); font-weight: 600; font-size: 13px; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="icon-wrap">
+    <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="M2 7l10 7 10-7"/></svg>
+  </div>
+  <h1>Check your email</h1>
+  <p class="subtitle">We sent a 6-digit code to</p>
+  <p class="email-hint" id="emailDisplay">you@student.monash.edu</p>
+  <div class="code-row">
+    <input class="code-input" maxlength="1" type="text" id="c1" oninput="jump(this,'c2')">
+    <input class="code-input" maxlength="1" type="text" id="c2" oninput="jump(this,'c3')">
+    <input class="code-input" maxlength="1" type="text" id="c3" oninput="jump(this,'c4')">
+    <input class="code-input" maxlength="1" type="text" id="c4" oninput="jump(this,'c5')">
+    <input class="code-input" maxlength="1" type="text" id="c5" oninput="jump(this,'c6')">
+    <input class="code-input" maxlength="1" type="text" id="c6">
+  </div>
+  <div id="alertBox" style="display:none;padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;"></div>
+  <button class="btn" id="verifyBtn" onclick="handleVerify()">Verify</button>
+  <p class="resend">Didn't receive it? <span class="timer" id="timer">Resend in 0:45</span></p>
+  <p class="back"><a href="login.html">← Back to login</a></p>
+</div>
+<script>
+  // Show the email this code was sent to
+  const pendingEmail = sessionStorage.getItem('pendingEmail') || '';
+  if (pendingEmail) document.getElementById('emailDisplay').textContent = pendingEmail;
+
+  function jump(el, nextId) {
+    if (el.value.length === 1) document.getElementById(nextId)?.focus();
+  }
+
+  // Allow typing the full 6-digit code into the first box (paste support)
+  document.getElementById('c1').addEventListener('paste', e => {
+    e.preventDefault();
+    const digits = (e.clipboardData.getData('text') || '').replace(/\D/g, '').slice(0, 6);
+    ['c1','c2','c3','c4','c5','c6'].forEach((id, i) => {
+      document.getElementById(id).value = digits[i] || '';
+    });
+    document.getElementById('c6').focus();
+  });
+
+  function getCode() {
+    return ['c1','c2','c3','c4','c5','c6']
+      .map(id => document.getElementById(id).value.trim())
+      .join('');
+  }
+
+  function setAlert(msg, isError) {
+    const box = document.getElementById('alertBox');
+    box.textContent = msg;
+    box.style.display = msg ? 'block' : 'none';
+    box.style.background = isError ? 'rgba(220,38,38,0.08)' : 'rgba(22,163,74,0.08)';
+    box.style.color = isError ? '#dc2626' : '#16a34a';
+    box.style.border = isError ? '1px solid rgba(220,38,38,0.2)' : '1px solid rgba(22,163,74,0.2)';
+  }
+
+  async function handleVerify() {
+    const code = getCode();
+    if (code.length < 6) { setAlert('Please enter the full 6-digit code.', true); return; }
+
+    const btn = document.getElementById('verifyBtn');
+    btn.disabled = true;
+    btn.textContent = 'Verifying…';
+    setAlert('', false);
+
+    try {
+      const res = await fetch('/api/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: pendingEmail, code })
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        setAlert(data.error || 'Verification failed.', true);
+        btn.disabled = false;
+        btn.textContent = 'Verify';
+        return;
+      }
+
+      // Success — go to trait form
+      sessionStorage.removeItem('pendingEmail');
+      window.location.href = 'traits.html';
+    } catch {
+      setAlert('Cannot reach server. Make sure the backend is running.', true);
+      btn.disabled = false;
+      btn.textContent = 'Verify';
+    }
+  }
+
+  // Allow pressing Enter to verify
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') handleVerify(); });
+
+  // Resend timer
+  let secs = 45;
+  const t = document.getElementById('timer');
+  const interval = setInterval(() => {
+    secs--;
+    if (secs <= 0) {
+      clearInterval(interval);
+      t.innerHTML = '<a href="#" onclick="resendCode()">Resend code</a>';
+    } else {
+      t.textContent = `Resend in 0:${String(secs).padStart(2,'0')}`;
+    }
+  }, 1000);
+
+  async function resendCode() {
+    if (!pendingEmail) { window.location.href = 'login.html'; return; }
+    setAlert('Resending…', false);
+    try {
+      await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email: pendingEmail, password: '__resend__' })
+      });
+      setAlert('A new code has been sent.', false);
+    } catch {
+      setAlert('Could not resend. Please go back and log in again.', true);
+    }
+  }
+</script>
+</body>
+</html>

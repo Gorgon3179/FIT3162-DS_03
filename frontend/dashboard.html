@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonashVote – Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #002a5c; --blue: #006dae; --accent: #00aad2;
+    --light: #f4f7fb; --white: #ffffff; --text: #1a2233;
+    --muted: #6b7a99; --border: #d6e0f0; --shadow: 0 4px 24px rgba(0,42,92,0.09);
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--light); min-height: 100vh; }
+
+  /* Nav */
+  nav {
+    background: var(--navy);
+    padding: 0 40px;
+    height: 60px;
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; z-index: 100;
+  }
+  .nav-logo { display: flex; align-items: center; gap: 10px; }
+  .nav-logo-mark {
+    width: 32px; height: 32px; background: white; border-radius: 7px;
+    display: grid; place-items: center;
+    font-family: 'DM Serif Display', serif; color: var(--navy); font-size: 16px;
+  }
+  .nav-logo-text { color: white; font-size: 15px; font-weight: 600; }
+  .nav-right { display: flex; align-items: center; gap: 20px; }
+  .nav-link { color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; }
+  .nav-link:hover { color: white; }
+  .avatar {
+    width: 36px; height: 36px; border-radius: 50%;
+    background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3);
+    display: grid; place-items: center; color: white; font-size: 13px; font-weight: 600; cursor: pointer;
+  }
+
+  /* Main */
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px 40px; }
+  .page-header { margin-bottom: 32px; }
+  .greeting { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--navy); margin-bottom: 4px; }
+  .greeting span { color: var(--blue); }
+  .sub { font-size: 14px; color: var(--muted); }
+  .hash-pill {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(0,42,92,0.07); border-radius: 20px; padding: 3px 10px 3px 6px;
+    font-size: 11px; color: var(--navy); font-weight: 600; letter-spacing: 0.3px; margin-top: 8px;
+  }
+  .hash-dot { width: 7px; height: 7px; background: var(--accent); border-radius: 50%; }
+
+  /* Grid */
+  .grid { display: grid; grid-template-columns: 320px 1fr; gap: 24px; }
+  .panel {
+    background: white; border-radius: 16px; border: 1px solid var(--border);
+    box-shadow: var(--shadow); overflow: hidden;
+  }
+  .panel-header {
+    padding: 20px 24px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .panel-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+  .badge { background: var(--accent); color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+  .election-list { padding: 12px; }
+  .election-item {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 12px 14px; border-radius: 10px; cursor: pointer;
+    transition: background 0.15s; margin-bottom: 6px;
+    border: 1px solid transparent;
+  }
+  .election-item:hover { background: var(--light); border-color: var(--border); }
+  .election-item.active { background: var(--navy); border-color: var(--navy); }
+  .election-item.active .el-name { color: white; }
+  .election-item.active .el-meta { color: rgba(255,255,255,0.6); }
+  .election-item.active .el-arrow { color: rgba(255,255,255,0.7); }
+  .el-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex-shrink: 0; margin-right: 12px; box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
+  .el-name { font-size: 14px; font-weight: 600; color: var(--text); }
+  .el-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .el-arrow { color: var(--muted); font-size: 16px; }
+  .voted-chip { background: rgba(34,197,94,0.12); color: #16a34a; font-size: 10px; font-weight: 700; padding: 2px 7px; border-radius: 8px; letter-spacing: 0.3px; }
+
+  /* Right panel */
+  .right-panel { display: flex; flex-direction: column; gap: 16px; }
+  .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .action-card {
+    background: white; border-radius: 16px; border: 1px solid var(--border);
+    box-shadow: var(--shadow); padding: 22px; cursor: pointer;
+    transition: box-shadow 0.2s, transform 0.15s, border-color 0.2s;
+    text-decoration: none; display: block;
+  }
+  .action-card:hover { box-shadow: 0 8px 32px rgba(0,42,92,0.14); transform: translateY(-2px); border-color: var(--blue); }
+  .action-icon {
+    width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 14px;
+  }
+  .action-icon.blue { background: rgba(0,109,174,0.1); }
+  .action-icon.green { background: rgba(34,197,94,0.1); }
+  .action-label { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .action-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* Welcome panel */
+  .welcome-banner {
+    background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 60%, var(--accent) 100%);
+    border-radius: 16px; padding: 28px 32px;
+    display: flex; align-items: center; justify-content: space-between;
+    box-shadow: 0 8px 32px rgba(0,42,92,0.2);
+  }
+  .welcome-text h2 { font-family: 'DM Serif Display', serif; font-size: 22px; color: white; margin-bottom: 6px; }
+  .welcome-text p { font-size: 13px; color: rgba(255,255,255,0.75); line-height: 1.5; max-width: 380px; }
+  .vote-now-btn {
+    background: white; color: var(--navy); border: none; border-radius: 10px;
+    padding: 11px 22px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    transition: transform 0.15s, box-shadow 0.15s;
+  }
+  .vote-now-btn:hover { transform: scale(1.03); box-shadow: 0 4px 16px rgba(0,0,0,0.15); }
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">M</div>
+    <span class="nav-logo-text">MonashVote</span>
+  </div>
+  <div class="nav-right">
+    <a class="nav-link" href="dashboard-admin.html">Admin View</a>
+    <a class="nav-link" href="#" onclick="logout()">Logout</a>
+    <div class="avatar" id="avatarEl">…</div>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-header">
+    <h1 class="greeting">Welcome back, <span id="voterHashDisplay">…</span></h1>
+    <p class="sub" id="electionCountSub">Loading elections…</p>
+    <div class="hash-pill"><div class="hash-dot"></div>Hashed ID: <span id="hashPillVal">…</span></div>
+  </div>
+
+  <div class="welcome-banner" style="margin-bottom:24px;">
+    <div class="welcome-text">
+      <h2>Your vote matters.</h2>
+      <p id="bannerSub">Loading open elections…</p>
+    </div>
+    <button class="vote-now-btn" id="voteNowBtn" onclick="voteInFirst()" style="opacity:0.5">Vote Now →</button>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Active Elections</span>
+        <span class="badge" id="elBadge">…</span>
+      </div>
+      <div class="election-list" id="electionList">
+        <div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">Loading…</div>
+      </div>
+    </div>
+
+    <div class="right-panel">
+      <div class="action-grid">
+        <a class="action-card" href="results.html">
+          <div class="action-icon blue">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 14h3V8H3v6zm5 0h3V4H8v10zm5 0h3v-4h-3v4z" fill="#006dae"/></svg>
+          </div>
+          <div class="action-label">Vote History</div>
+          <div class="action-desc">View your past votes and election outcomes</div>
+        </a>
+        <a class="action-card" href="traits.html">
+          <div class="action-icon green">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="#16a34a" stroke-width="1.5"/><path d="M4 17c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#16a34a" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <div class="action-label">Update Traits</div>
+          <div class="action-desc">Update your personal information for analytics</div>
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  let firstUnvotedId = null;
+
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    window.location.href = 'login.html';
+  }
+
+  function voteInFirst() {
+    if (firstUnvotedId) window.location.href = `vote.html?id=${firstUnvotedId}`;
+  }
+
+  function timeLeft(closesAt) {
+    const ms = new Date(closesAt) - Date.now();
+    if (ms < 0) return 'Closed';
+    const days = Math.floor(ms / 86400000);
+    const hours = Math.floor((ms % 86400000) / 3600000);
+    return days > 0 ? `Closes in ${days}d` : `Closes in ${hours}h`;
+  }
+
+  (async () => {
+    // Auth check - redirect to login if not logged in
+    try {
+      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!meRes.ok) { window.location.href = 'login.html'; return; }
+      const me = await meRes.json();
+
+      const short = me.voterHash?.slice(0, 8) || '…';
+      document.getElementById('voterHashDisplay').textContent = short;
+      document.getElementById('hashPillVal').textContent = me.voterHash || '…';
+      document.getElementById('avatarEl').textContent = short.slice(0, 2).toUpperCase();
+    } catch { window.location.href = 'login.html'; return; }
+
+    // Load elections
+    try {
+      const res = await fetch('/api/elections', { credentials: 'include' });
+      const data = await res.json();
+      const elections = data.elections || [];
+
+      document.getElementById('elBadge').textContent = elections.length;
+      const unvoted = elections.filter(e => !e.hasVoted);
+      document.getElementById('electionCountSub').textContent =
+        `You have ${unvoted.length} election${unvoted.length !== 1 ? 's' : ''} to vote in.`;
+      document.getElementById('bannerSub').textContent =
+        unvoted.length > 0
+          ? `${unvoted.length} club election${unvoted.length !== 1 ? 's are' : ' is'} open. Cast your ranked preferences before they close.`
+          : 'You have voted in all open elections. Check back later!';
+
+      firstUnvotedId = unvoted[0]?.id || null;
+      if (firstUnvotedId) document.getElementById('voteNowBtn').style.opacity = '1';
+
+      const list = document.getElementById('electionList');
+      if (elections.length === 0) {
+        list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">No active elections right now.</div>';
+        return;
+      }
+
+      list.innerHTML = elections.map((e, i) => `
+        <div class="election-item ${i === 0 ? 'active' : ''}"
+             onclick="window.location='vote.html?id=${e.id}'"
+             style="${e.hasVoted ? 'cursor:default' : ''}">
+          <div class="el-dot" style="${e.hasVoted ? 'background:#94a3b8;box-shadow:none' : ''}"></div>
+          <div style="flex:1">
+            <div class="el-name">${e.title}</div>
+            <div class="el-meta">${timeLeft(e.closesAt)} · ${e.candidateCount} candidates</div>
+          </div>
+          ${e.hasVoted
+            ? '<span class="voted-chip">✓ Voted</span>'
+            : '<span class="el-arrow">›</span>'}
+        </div>
+      `).join('');
+    } catch (err) {
+      document.getElementById('electionList').innerHTML =
+        '<div style="padding:20px;text-align:center;color:#dc2626;font-size:13px;">Could not load elections.</div>';
+    }
+  })();
+</script>

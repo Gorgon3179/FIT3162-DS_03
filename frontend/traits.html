@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonashVote – Personal Trait Form</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #002a5c; --blue: #006dae; --accent: #00aad2;
+    --light: #f4f7fb; --white: #ffffff; --text: #1a2233;
+    --muted: #6b7a99; --border: #d6e0f0; --shadow: 0 8px 40px rgba(0,42,92,0.12);
+  }
+  body {
+    font-family: 'DM Sans', sans-serif; background: var(--light);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    padding: 40px 20px;
+    background-image: radial-gradient(ellipse at 20% 80%, rgba(0,109,174,0.10) 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 10%, rgba(0,170,210,0.08) 0%, transparent 55%);
+  }
+  .card {
+    background: var(--white); border-radius: 20px; padding: 48px;
+    width: 540px; max-width: 100%;
+    box-shadow: var(--shadow); border: 1px solid var(--border);
+    animation: fadeUp 0.5s ease both;
+  }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+  .header { margin-bottom: 36px; }
+  .step-badge {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: rgba(0,109,174,0.08); color: var(--blue);
+    font-size: 12px; font-weight: 600; padding: 4px 12px;
+    border-radius: 20px; margin-bottom: 14px; letter-spacing: 0.3px;
+  }
+  h1 { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--navy); margin-bottom: 6px; }
+  .subtitle { font-size: 14px; color: var(--muted); line-height: 1.5; }
+  .progress { height: 3px; background: var(--border); border-radius: 2px; margin: 24px 0; overflow: hidden; }
+  .progress-bar { height: 100%; width: 33%; background: linear-gradient(90deg, var(--navy), var(--accent)); border-radius: 2px; }
+  .field { margin-bottom: 22px; }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 7px; }
+  label .req { color: var(--accent); margin-left: 2px; }
+  select, input[type="text"] {
+    width: 100%; padding: 12px 16px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text);
+    background: var(--light); outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    appearance: none; -webkit-appearance: none;
+  }
+  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7a99' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+             background-repeat: no-repeat; background-position: right 14px center; padding-right: 38px; }
+  select:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0,109,174,0.10); background: white; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  .privacy-note {
+    display: flex; gap: 10px; align-items: flex-start;
+    background: rgba(0,109,174,0.05); border: 1px solid rgba(0,109,174,0.12);
+    border-radius: 10px; padding: 12px 14px; margin-bottom: 28px;
+  }
+  .privacy-note svg { flex-shrink: 0; margin-top: 1px; }
+  .privacy-note p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .btn {
+    width: 100%; padding: 14px;
+    background: var(--navy); color: white; border: none; border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600;
+    cursor: pointer; transition: background 0.2s, transform 0.1s;
+  }
+  .btn:hover { background: var(--blue); }
+  .btn:active { transform: scale(0.98); }
+  .skip { text-align: center; margin-top: 14px; font-size: 13px; color: var(--muted); }
+  .skip a { color: var(--blue); text-decoration: none; font-weight: 500; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="header">
+    <div class="step-badge">
+      <svg width="12" height="12" viewBox="0 0 12 12" fill="none"><circle cx="6" cy="6" r="5" stroke="#006dae" stroke-width="1.5"/><text x="6" y="9.5" text-anchor="middle" font-size="7" fill="#006dae" font-family="DM Sans" font-weight="600">2</text></svg>
+      Step 2 of 3
+    </div>
+    <h1>Personal Trait Form</h1>
+    <p class="subtitle">Help us provide better election analytics. Your responses are anonymised and used only for aggregate insights.</p>
+  </div>
+  <div class="progress"><div class="progress-bar"></div></div>
+
+  <div class="field">
+    <label>Which course are you doing? <span class="req">*</span></label>
+    <select>
+      <option value="" disabled selected>Select your faculty / course</option>
+      <option>Bachelor of Computer Science</option>
+      <option>Bachelor of Engineering</option>
+      <option>Bachelor of Business</option>
+      <option>Bachelor of Arts</option>
+      <option>Bachelor of Science</option>
+      <option>Bachelor of Laws</option>
+      <option>Bachelor of Medicine</option>
+      <option>Other</option>
+    </select>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label>Year of study <span class="req">*</span></label>
+      <select>
+        <option value="" disabled selected>Select year</option>
+        <option>Year 1</option><option>Year 2</option><option>Year 3</option>
+        <option>Year 4</option><option>Year 5+</option><option>Postgraduate</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Country of origin <span class="req">*</span></label>
+      <select>
+        <option value="" disabled selected>Select country</option>
+        <option>Australia</option><option>China</option><option>India</option>
+        <option>Malaysia</option><option>Indonesia</option><option>Vietnam</option>
+        <option>Other</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="row">
+    <div class="field">
+      <label>Campus <span class="req">*</span></label>
+      <select>
+        <option value="" disabled selected>Select campus</option>
+        <option>Clayton</option><option>Caulfield</option><option>Peninsula</option>
+        <option>Parkville</option><option>Malaysia</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Clubs currently joined</label>
+      <select>
+        <option value="" disabled selected>Select range</option>
+        <option>0</option><option>1</option><option>2</option>
+        <option>3</option><option>4</option><option>5+</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="privacy-note">
+    <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="8" cy="8" r="7" stroke="#006dae" stroke-width="1.3"/><path d="M8 7v4" stroke="#006dae" stroke-width="1.3" stroke-linecap="round"/><circle cx="8" cy="5" r="0.7" fill="#006dae"/></svg>
+    <p>Your personal trait data is hashed and anonymised before storage. Individual responses cannot be linked back to your identity.</p>
+  </div>
+
+  <div id="alertBox" style="display:none;padding:10px 14px;border-radius:10px;font-size:13px;margin-bottom:14px;background:rgba(220,38,38,0.08);color:#dc2626;border:1px solid rgba(220,38,38,0.2);"></div>
+  <button class="btn" id="submitBtn" onclick="handleSubmit()">Continue to Elections →</button>
+  <p class="skip"><a href="dashboard.html">Skip for now</a></p>
+</div>
+<script>
+  // Pre-fill if traits already saved
+  (async () => {
+    try {
+      const r = await fetch('/api/traits', { credentials: 'include' });
+      if (r.ok) {
+        const d = await r.json();
+        if (d) {
+          // set select values if they match options
+          document.querySelectorAll('select').forEach(sel => {
+            const key = sel.dataset.key;
+            if (key && d[key]) {
+              [...sel.options].forEach(o => { if (o.value === d[key]) o.selected = true; });
+            }
+          });
+        }
+      }
+    } catch {}
+  })();
+
+  async function handleSubmit() {
+    const selects = document.querySelectorAll('select');
+    const [faculty, yearOfStudy, countryOfOrigin, campus, clubsJoined] =
+      [...selects].map(s => s.value);
+
+    const btn = document.getElementById('submitBtn');
+    btn.disabled = true; btn.textContent = 'Saving…';
+
+    try {
+      const res = await fetch('/api/traits', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ faculty, yearOfStudy, countryOfOrigin, campus, clubsJoined })
+      });
+      if (!res.ok) {
+        const d = await res.json();
+        document.getElementById('alertBox').style.display = 'block';
+        document.getElementById('alertBox').textContent = d.error || 'Could not save traits.';
+        btn.disabled = false; btn.textContent = 'Continue to Elections →';
+        return;
+      }
+      window.location.href = 'dashboard.html';
+    } catch {
+      document.getElementById('alertBox').style.display = 'block';
+      document.getElementById('alertBox').textContent = 'Cannot reach server.';
+      btn.disabled = false; btn.textContent = 'Continue to Elections →';
+    }
+  }
+</script>
+</body>
+</html>

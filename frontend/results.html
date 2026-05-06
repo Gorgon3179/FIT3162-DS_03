@@ -1,0 +1,288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonashVote – Results & Visualisation</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #002a5c; --blue: #006dae; --accent: #00aad2;
+    --light: #f4f7fb; --white: #fff; --text: #1a2233;
+    --muted: #6b7a99; --border: #d6e0f0; --shadow: 0 4px 24px rgba(0,42,92,0.09);
+    --c1: #002a5c; --c2: #006dae; --c3: #00aad2; --c4: #7dd3fc; --c5: #a5b4fc;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--light); min-height: 100vh; }
+  nav { background: var(--navy); padding: 0 40px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+  .nav-logo { display: flex; align-items: center; gap: 10px; }
+  .nav-logo-mark { width: 32px; height: 32px; background: white; border-radius: 7px; display: grid; place-items: center; font-family: 'DM Serif Display', serif; color: var(--navy); font-size: 16px; }
+  .nav-logo-text { color: white; font-size: 15px; font-weight: 600; }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .back-btn { color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 500; text-decoration: none; }
+  .back-btn:hover { color: white; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); display: grid; place-items: center; color: white; font-size: 13px; font-weight: 600; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px; }
+  .page-header { margin-bottom: 32px; display: flex; justify-content: space-between; align-items: flex-start; }
+  .title-area h1 { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--navy); margin-bottom: 4px; }
+  .title-area p { font-size: 14px; color: var(--muted); }
+  .tab-row { display: flex; gap: 8px; margin-bottom: 24px; }
+  .tab {
+    padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border);
+    background: white; color: var(--muted); transition: all 0.15s;
+  }
+  .tab.active { background: var(--navy); color: white; border-color: var(--navy); }
+  .tab:hover:not(.active) { border-color: var(--blue); color: var(--blue); }
+
+  .grid { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
+
+  /* Results panel */
+  .panel { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+  .panel-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
+  .panel-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+  .winner-banner { background: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%); padding: 18px 24px; display: flex; align-items: center; gap: 14px; }
+  .winner-crown { font-size: 22px; }
+  .winner-text h3 { font-family: 'DM Serif Display', serif; font-size: 18px; color: white; margin-bottom: 2px; }
+  .winner-text p { font-size: 12px; color: rgba(255,255,255,0.7); }
+  .result-list { padding: 16px; }
+  .result-item { margin-bottom: 14px; }
+  .result-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .result-name { font-size: 13px; font-weight: 600; color: var(--text); display: flex; align-items: center; gap: 8px; }
+  .result-rank { width: 20px; height: 20px; border-radius: 5px; background: var(--navy); color: white; font-size: 10px; font-weight: 700; display: grid; place-items: center; }
+  .result-rank.r2 { background: var(--blue); }
+  .result-rank.r3 { background: var(--accent); }
+  .result-rank.r4, .result-rank.r5 { background: var(--border); color: var(--muted); }
+  .result-pct { font-size: 13px; font-weight: 700; color: var(--navy); }
+  .bar-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+  .bar-fill.r1 { background: linear-gradient(90deg, var(--navy), var(--blue)); }
+  .bar-fill.r2 { background: var(--blue); }
+  .bar-fill.r3 { background: var(--accent); }
+  .bar-fill.r4, .bar-fill.r5 { background: #b0c4d8; }
+  .votes-count { font-size: 11px; color: var(--muted); margin-top: 3px; }
+
+  /* Viz panel */
+  .viz-panel { display: flex; flex-direction: column; gap: 20px; }
+  .trait-selector { background: white; border-radius: 14px; border: 1px solid var(--border); padding: 20px 24px; box-shadow: var(--shadow); }
+  .trait-selector h3 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; }
+  .trait-pills { display: flex; flex-wrap: wrap; gap: 8px; }
+  .trait-pill { padding: 6px 14px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1.5px solid var(--border); cursor: pointer; transition: all 0.15s; }
+  .trait-pill.active { background: var(--navy); color: white; border-color: var(--navy); }
+  .trait-pill:hover:not(.active) { border-color: var(--blue); color: var(--blue); }
+
+  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .chart-panel { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); padding: 22px; }
+  .chart-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 16px; }
+  canvas { display: block; }
+
+  .download-btn {
+    width: 100%; padding: 13px; background: var(--navy); color: white; border: none; border-radius: 12px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s;
+  }
+  .download-btn:hover { background: var(--blue); }
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">M</div>
+    <span class="nav-logo-text">MonashVote</span>
+  </div>
+  <div class="nav-right">
+    <a class="back-btn" href="dashboard.html">← Dashboard</a>
+    <a class="back-btn" href="dashboard-admin.html">Admin</a>
+    <div class="avatar">01</div>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-header">
+    <div class="title-area">
+      <h1>Result &amp; Visualisation for Club 1</h1>
+      <p>IRV tally complete · 412 ballots counted · Final results</p>
+    </div>
+  </div>
+
+  <div class="tab-row">
+    <div class="tab active" onclick="setTab(this,'club1')">Club 1 Election</div>
+    <div class="tab" onclick="setTab(this,'club2')">Club 2 Election</div>
+  </div>
+
+  <div class="grid">
+    <div>
+      <div class="panel">
+        <div class="winner-banner">
+          <div class="winner-crown">👑</div>
+          <div class="winner-text">
+            <h3>Candidate 3 — Winner</h3>
+            <p>Elected after IRV round 3 · 38.6% final share</p>
+          </div>
+        </div>
+        <div class="panel-header"><span class="panel-title">Final Rankings</span></div>
+        <div class="result-list">
+          <div class="result-item">
+            <div class="result-label">
+              <span class="result-name"><span class="result-rank">1</span>Candidate 3</span>
+              <span class="result-pct">38.6%</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill r1" style="width:0%" data-w="86%"></div></div>
+            <div class="votes-count">159 votes</div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">
+              <span class="result-name"><span class="result-rank r2">2</span>Candidate 2</span>
+              <span class="result-pct">28.2%</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill r2" style="width:0%" data-w="63%"></div></div>
+            <div class="votes-count">116 votes</div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">
+              <span class="result-name"><span class="result-rank r3">3</span>Candidate 5</span>
+              <span class="result-pct">17.5%</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill r3" style="width:0%" data-w="39%"></div></div>
+            <div class="votes-count">72 votes</div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">
+              <span class="result-name"><span class="result-rank r4">4</span>Candidate 1</span>
+              <span class="result-pct">9.7%</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill r4" style="width:0%" data-w="22%"></div></div>
+            <div class="votes-count">40 votes</div>
+          </div>
+          <div class="result-item">
+            <div class="result-label">
+              <span class="result-name"><span class="result-rank r5">5</span>Candidate 4</span>
+              <span class="result-pct">6.0%</span>
+            </div>
+            <div class="bar-track"><div class="bar-fill r5" style="width:0%" data-w="14%"></div></div>
+            <div class="votes-count">25 votes</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="viz-panel">
+      <div class="trait-selector">
+        <h3>Break down by voter trait</h3>
+        <div class="trait-pills">
+          <div class="trait-pill active">Year of Study</div>
+          <div class="trait-pill">Faculty</div>
+          <div class="trait-pill">Campus</div>
+          <div class="trait-pill">Country of Origin</div>
+          <div class="trait-pill">Clubs Joined</div>
+        </div>
+      </div>
+
+      <div class="charts-row">
+        <div class="chart-panel">
+          <div class="chart-title">Votes by Year of Study</div>
+          <canvas id="pieChart" width="260" height="220"></canvas>
+        </div>
+        <div class="chart-panel">
+          <div class="chart-title">1st Preference by Year</div>
+          <canvas id="barChart" width="280" height="220"></canvas>
+        </div>
+      </div>
+
+      <button class="download-btn">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3M3 12h10" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        Download Results Report (PDF)
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+// Animate bars
+setTimeout(() => {
+  document.querySelectorAll('.bar-fill').forEach(b => {
+    b.style.width = b.dataset.w;
+  });
+}, 100);
+
+function setTab(el, id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+}
+
+document.querySelectorAll('.trait-pill').forEach(pill => {
+  pill.addEventListener('click', () => {
+    document.querySelectorAll('.trait-pill').forEach(p => p.classList.remove('active'));
+    pill.classList.add('active');
+  });
+});
+
+// Pie chart
+(function() {
+  const canvas = document.getElementById('pieChart');
+  const ctx = canvas.getContext('2d');
+  const slices = [
+    { pct: 0.38, color: '#002a5c', label: 'Year 1' },
+    { pct: 0.27, color: '#006dae', label: 'Year 2' },
+    { pct: 0.20, color: '#00aad2', label: 'Year 3' },
+    { pct: 0.10, color: '#7dd3fc', label: 'Year 4' },
+    { pct: 0.05, color: '#a5b4fc', label: 'Year 5+' },
+  ];
+  const cx = 110, cy = 100, r = 80;
+  let start = -Math.PI / 2;
+  slices.forEach(s => {
+    const end = start + s.pct * 2 * Math.PI;
+    ctx.beginPath();
+    ctx.moveTo(cx, cy);
+    ctx.arc(cx, cy, r, start, end);
+    ctx.closePath();
+    ctx.fillStyle = s.color;
+    ctx.fill();
+    start = end;
+  });
+  // Legend
+  let ly = 20;
+  slices.forEach(s => {
+    ctx.fillStyle = s.color;
+    ctx.fillRect(225, ly, 12, 12);
+    ctx.fillStyle = '#6b7a99';
+    ctx.font = '11px DM Sans';
+    ctx.fillText(s.label + ' (' + Math.round(s.pct*100) + '%)', 242, ly + 10);
+    ly += 22;
+  });
+})();
+
+// Bar chart
+(function() {
+  const canvas = document.getElementById('barChart');
+  const ctx = canvas.getContext('2d');
+  const bars = [
+    { label: 'Y1', val: 0.45, color: '#002a5c' },
+    { label: 'Y2', val: 0.62, color: '#006dae' },
+    { label: 'Y3', val: 0.38, color: '#00aad2' },
+    { label: 'Y4', val: 0.55, color: '#7dd3fc' },
+    { label: 'Y5+', val: 0.28, color: '#a5b4fc' },
+  ];
+  const maxH = 160, barW = 36, gap = 16, startX = 24, baseY = 195;
+  bars.forEach((b, i) => {
+    const x = startX + i * (barW + gap);
+    const h = b.val * maxH;
+    const gradient = ctx.createLinearGradient(x, baseY - h, x, baseY);
+    gradient.addColorStop(0, b.color);
+    gradient.addColorStop(1, b.color + '99');
+    ctx.fillStyle = gradient;
+    ctx.beginPath();
+    ctx.roundRect(x, baseY - h, barW, h, [6, 6, 0, 0]);
+    ctx.fill();
+    ctx.fillStyle = '#6b7a99';
+    ctx.font = '11px DM Sans';
+    ctx.textAlign = 'center';
+    ctx.fillText(b.label, x + barW / 2, baseY + 14);
+    ctx.fillStyle = '#1a2233';
+    ctx.font = '600 11px DM Sans';
+    ctx.fillText(Math.round(b.val * 100) + '%', x + barW / 2, baseY - h - 5);
+  });
+})();
+</script>
+</body>
+</html>

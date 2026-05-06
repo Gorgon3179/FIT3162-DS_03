@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonashVote – Cast Your Vote</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #002a5c; --blue: #006dae; --accent: #00aad2;
+    --light: #f4f7fb; --white: #fff; --text: #1a2233;
+    --muted: #6b7a99; --border: #d6e0f0; --shadow: 0 4px 24px rgba(0,42,92,0.09);
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--light); min-height: 100vh; }
+  nav { background: var(--navy); padding: 0 40px; height: 60px; display: flex; align-items: center; justify-content: space-between; }
+  .nav-logo { display: flex; align-items: center; gap: 10px; }
+  .nav-logo-mark { width: 32px; height: 32px; background: white; border-radius: 7px; display: grid; place-items: center; font-family: 'DM Serif Display', serif; color: var(--navy); font-size: 16px; }
+  .nav-logo-text { color: white; font-size: 15px; font-weight: 600; }
+  .nav-right { display: flex; align-items: center; gap: 16px; }
+  .back-btn { color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 500; text-decoration: none; display: flex; align-items: center; gap: 5px; }
+  .back-btn:hover { color: white; }
+
+  .main { max-width: 680px; margin: 0 auto; padding: 48px 20px; }
+  .election-header {
+    background: var(--navy); border-radius: 16px; padding: 28px 32px; margin-bottom: 28px;
+    background-image: linear-gradient(135deg, var(--navy) 0%, var(--blue) 100%);
+  }
+  .election-tag { font-size: 12px; font-weight: 600; color: rgba(255,255,255,0.6); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px; }
+  .election-title { font-family: 'DM Serif Display', serif; font-size: 26px; color: white; margin-bottom: 6px; }
+  .election-meta { font-size: 13px; color: rgba(255,255,255,0.65); display: flex; gap: 20px; }
+  .election-meta span { display: flex; align-items: center; gap: 5px; }
+
+  .instructions {
+    background: white; border: 1px solid var(--border); border-radius: 14px; padding: 18px 20px;
+    margin-bottom: 24px; display: flex; gap: 14px; align-items: flex-start;
+  }
+  .inst-icon { width: 36px; height: 36px; background: rgba(0,109,174,0.1); border-radius: 8px; display: grid; place-items: center; flex-shrink: 0; }
+  .inst-text h3 { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .inst-text p { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  .candidates-card { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+  .candidates-header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .candidates-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+  .clear-link { font-size: 12px; color: var(--blue); font-weight: 500; cursor: pointer; }
+  .clear-link:hover { text-decoration: underline; }
+  .candidate-row {
+    display: flex; align-items: center; padding: 16px 24px;
+    border-bottom: 1px solid #f0f4f9; gap: 16px;
+    transition: background 0.12s;
+  }
+  .candidate-row:last-child { border-bottom: none; }
+  .candidate-row:hover { background: #fafcff; }
+  .candidate-avatar {
+    width: 40px; height: 40px; border-radius: 10px; flex-shrink: 0;
+    background: var(--navy); display: grid; place-items: center;
+    font-family: 'DM Serif Display', serif; font-size: 16px; color: white;
+  }
+  .candidate-avatar.c1 { background: #004a8f; }
+  .candidate-avatar.c2 { background: #006dae; }
+  .candidate-avatar.c3 { background: #0090cf; }
+  .candidate-avatar.c4 { background: #00b4d8; }
+  .candidate-avatar.c5 { background: #002a5c; }
+  .candidate-name { font-size: 14px; font-weight: 600; color: var(--text); flex: 1; }
+  .candidate-sub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+  .rank-select {
+    padding: 8px 12px 8px 10px; border: 1.5px solid var(--border);
+    border-radius: 8px; font-family: 'DM Sans', sans-serif;
+    font-size: 13px; font-weight: 600; color: var(--text);
+    background: var(--light); outline: none; cursor: pointer;
+    transition: border-color 0.15s; min-width: 120px;
+    appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='7' viewBox='0 0 10 7'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%236b7a99' stroke-width='1.3' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 10px center; padding-right: 28px;
+  }
+  .rank-select:focus { border-color: var(--blue); }
+  .rank-select.ranked { border-color: var(--blue); background-color: rgba(0,109,174,0.06); color: var(--navy); }
+  .rank-badge {
+    width: 26px; height: 26px; border-radius: 6px; display: grid; place-items: center;
+    font-size: 12px; font-weight: 700; background: var(--border); color: var(--muted);
+    flex-shrink: 0; transition: all 0.2s;
+  }
+  .rank-badge.set { background: var(--navy); color: white; }
+
+  .submit-area { margin-top: 24px; }
+  .submit-btn {
+    width: 100%; padding: 15px; background: var(--navy); color: white;
+    border: none; border-radius: 12px; font-family: 'DM Sans', sans-serif;
+    font-size: 16px; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s;
+    letter-spacing: -0.2px;
+  }
+  .submit-btn:hover { background: var(--blue); }
+  .submit-btn:active { transform: scale(0.99); }
+  .submit-note { text-align: center; font-size: 12px; color: var(--muted); margin-top: 12px; line-height: 1.5; }
+
+  /* Confirmation overlay */
+  .overlay {
+    display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5);
+    z-index: 200; align-items: center; justify-content: center;
+    backdrop-filter: blur(4px);
+  }
+  .overlay.show { display: flex; }
+  .confirm-box { background: white; border-radius: 20px; padding: 40px; max-width: 400px; width: 90%; text-align: center; animation: popIn 0.3s ease; }
+  @keyframes popIn { from { opacity:0; transform: scale(0.9); } to { opacity:1; transform: scale(1); } }
+  .confirm-icon { width: 64px; height: 64px; border-radius: 50%; background: linear-gradient(135deg, #002a5c, #006dae); display: grid; place-items: center; margin: 0 auto 20px; }
+  .confirm-title { font-family: 'DM Serif Display', serif; font-size: 24px; color: var(--navy); margin-bottom: 8px; }
+  .confirm-sub { font-size: 13px; color: var(--muted); line-height: 1.6; margin-bottom: 24px; }
+  .confirm-btn { background: var(--navy); color: white; border: none; border-radius: 10px; padding: 13px 32px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer; }
+  .confirm-btn:hover { background: var(--blue); }
+  .cancel-btn { background: none; border: none; color: var(--muted); font-family: 'DM Sans', sans-serif; font-size: 13px; cursor: pointer; margin-left: 16px; }
+  .cancel-btn:hover { color: var(--text); }
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">M</div>
+    <span class="nav-logo-text">MonashVote</span>
+  </div>
+  <div class="nav-right">
+    <a class="back-btn" href="dashboard.html">← Back to Dashboard</a>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="election-header">
+    <div class="election-tag">Preferential Voting · IRV</div>
+    <div class="election-title">Club 1 President Election</div>
+    <div class="election-meta">
+      <span>🗓 Closes in 2 days</span>
+      <span>👥 5 candidates</span>
+      <span>🔒 Anonymous ballot</span>
+    </div>
+  </div>
+
+  <div class="instructions">
+    <div class="inst-icon">
+      <svg width="18" height="18" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7.5" stroke="#006dae" stroke-width="1.3"/><path d="M9 8v5" stroke="#006dae" stroke-width="1.3" stroke-linecap="round"/><circle cx="9" cy="5.5" r="0.8" fill="#006dae"/></svg>
+    </div>
+    <div class="inst-text">
+      <h3>How to vote (Instant Runoff Voting)</h3>
+      <p>Rank candidates in order of preference using the dropdowns. 1st is your top pick. You don't need to rank all candidates — unranked candidates will not receive any preference.</p>
+    </div>
+  </div>
+
+  <div class="candidates-card">
+    <div class="candidates-header">
+      <span class="candidates-title">Candidates</span>
+      <span class="clear-link" onclick="clearAll()">Clear all rankings</span>
+    </div>
+    <div id="candidate-list">
+      <div class="candidate-row">
+        <div class="rank-badge" id="badge-0">—</div>
+        <div class="candidate-avatar c1">A</div>
+        <div style="flex:1">
+          <div class="candidate-name">Candidate 1</div>
+          <div class="candidate-sub">Year 3 · Computer Science</div>
+        </div>
+        <select class="rank-select" id="sel-0" onchange="updateRank(this, 0)">
+          <option value="">No preference</option>
+          <option value="1">1st Choice</option>
+          <option value="2">2nd Choice</option>
+          <option value="3">3rd Choice</option>
+          <option value="4">4th Choice</option>
+          <option value="5">5th Choice</option>
+        </select>
+      </div>
+      <div class="candidate-row">
+        <div class="rank-badge" id="badge-1">—</div>
+        <div class="candidate-avatar c2">B</div>
+        <div style="flex:1">
+          <div class="candidate-name">Candidate 2</div>
+          <div class="candidate-sub">Year 2 · Engineering</div>
+        </div>
+        <select class="rank-select" id="sel-1" onchange="updateRank(this, 1)">
+          <option value="">No preference</option>
+          <option value="1">1st Choice</option>
+          <option value="2">2nd Choice</option>
+          <option value="3">3rd Choice</option>
+          <option value="4">4th Choice</option>
+          <option value="5">5th Choice</option>
+        </select>
+      </div>
+      <div class="candidate-row">
+        <div class="rank-badge" id="badge-2">—</div>
+        <div class="candidate-avatar c3">C</div>
+        <div style="flex:1">
+          <div class="candidate-name">Candidate 3</div>
+          <div class="candidate-sub">Year 4 · Business</div>
+        </div>
+        <select class="rank-select" id="sel-2" onchange="updateRank(this, 2)">
+          <option value="">No preference</option>
+          <option value="1">1st Choice</option>
+          <option value="2">2nd Choice</option>
+          <option value="3">3rd Choice</option>
+          <option value="4">4th Choice</option>
+          <option value="5">5th Choice</option>
+        </select>
+      </div>
+      <div class="candidate-row">
+        <div class="rank-badge" id="badge-3">—</div>
+        <div class="candidate-avatar c4">D</div>
+        <div style="flex:1">
+          <div class="candidate-name">Candidate 4</div>
+          <div class="candidate-sub">Year 1 · Science</div>
+        </div>
+        <select class="rank-select" id="sel-3" onchange="updateRank(this, 3)">
+          <option value="">No preference</option>
+          <option value="1">1st Choice</option>
+          <option value="2">2nd Choice</option>
+          <option value="3">3rd Choice</option>
+          <option value="4">4th Choice</option>
+          <option value="5">5th Choice</option>
+        </select>
+      </div>
+      <div class="candidate-row">
+        <div class="rank-badge" id="badge-4">—</div>
+        <div class="candidate-avatar c5">E</div>
+        <div style="flex:1">
+          <div class="candidate-name">Candidate 5</div>
+          <div class="candidate-sub">Year 3 · Arts</div>
+        </div>
+        <select class="rank-select" id="sel-4" onchange="updateRank(this, 4)">
+          <option value="">No preference</option>
+          <option value="1">1st Choice</option>
+          <option value="2">2nd Choice</option>
+          <option value="3">3rd Choice</option>
+          <option value="4">4th Choice</option>
+          <option value="5">5th Choice</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="submit-area">
+    <button class="submit-btn" onclick="document.getElementById('overlay').classList.add('show')">Submit My Ballot</button>
+    <p class="submit-note">Your vote is anonymous and encrypted. Once submitted, it cannot be changed.</p>
+  </div>
+</div>
+
+<div class="overlay" id="overlay">
+  <div class="confirm-box">
+    <div class="confirm-icon">
+      <svg width="28" height="28" viewBox="0 0 28 28" fill="none"><path d="M7 14l5 5 9-9" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="confirm-title">Confirm your ballot</div>
+    <div class="confirm-sub">You're about to submit your ranked ballot for the <strong>Club 1 President Election</strong>. This action cannot be undone.</div>
+    <div>
+      <button class="confirm-btn" onclick="submitBallot()">Yes, submit ballot</button>
+      <button class="cancel-btn" onclick="document.getElementById('overlay').classList.remove('show')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const electionId = new URLSearchParams(window.location.search).get('id') || 1;
+
+// Load election data
+(async () => {
+  try {
+    const res = await fetch(`/api/elections/${electionId}`, { credentials: 'include' });
+    if (!res.ok) { window.location.href = 'dashboard.html'; return; }
+    const e = await res.json();
+
+    // Update header
+    document.querySelector('.election-title').textContent = e.title;
+    document.querySelector('.election-meta').innerHTML = `
+      <span>🗓 Closes ${new Date(e.closesAt).toLocaleDateString()}</span>
+      <span>👥 ${e.candidates.length} candidates</span>
+      <span>🔒 Anonymous ballot</span>
+    `;
+    document.querySelector('.confirm-sub strong').textContent = e.title;
+
+    if (e.hasVoted) {
+      document.querySelector('.submit-btn').disabled = true;
+      document.querySelector('.submit-note').textContent = '✓ You have already voted in this election.';
+    }
+
+    // Render candidates (already randomised by backend - R13)
+    const avatarColors = ['#004a8f','#006dae','#0090cf','#00b4d8','#002a5c'];
+    const list = document.getElementById('candidate-list');
+    list.innerHTML = e.candidates.map((c, i) => `
+      <div class="candidate-row">
+        <div class="rank-badge" id="badge-${i}">—</div>
+        <div class="candidate-avatar" style="background:${avatarColors[i % avatarColors.length]}">${c.name[0]}</div>
+        <div style="flex:1">
+          <div class="candidate-name">${c.name}</div>
+          <div class="candidate-sub">${c.year || ''} · ${c.degree || ''}</div>
+        </div>
+        <select class="rank-select" id="sel-${i}" data-candidate-id="${c.id}" onchange="updateRank(this, ${i})">
+          <option value="">No preference</option>
+          ${e.candidates.map((_, r) => `<option value="${r+1}">${r+1}${['st','nd','rd'][r]||'th'} Choice</option>`).join('')}
+        </select>
+      </div>
+    `).join('');
+
+    window._candidateCount = e.candidates.length;
+  } catch {
+    document.querySelector('.election-title').textContent = 'Error loading election';
+  }
+})();
+
+function updateRank(sel, idx) {
+  const badge = document.getElementById('badge-' + idx);
+  const val = sel.value;
+  if (val) {
+    badge.textContent = val;
+    badge.classList.add('set');
+    sel.classList.add('ranked');
+  } else {
+    badge.textContent = '—';
+    badge.classList.remove('set');
+    sel.classList.remove('ranked');
+  }
+}
+
+function clearAll() {
+  document.querySelectorAll('.rank-select').forEach((sel, i) => {
+    sel.value = '';
+    updateRank(sel, i);
+  });
+}
+
+async function submitBallot() {
+  const selects = document.querySelectorAll('.rank-select');
+  const rankings = [];
+  selects.forEach(sel => {
+    if (sel.value) {
+      rankings.push({ candidateId: parseInt(sel.dataset.candidateId), rank: parseInt(sel.value) });
+    }
+  });
+
+  if (rankings.length === 0) {
+    alert('Please rank at least one candidate before submitting.');
+    document.getElementById('overlay').classList.remove('show');
+    return;
+  }
+
+  try {
+    const res = await fetch(`/api/elections/${electionId}/vote`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ rankings })
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      alert(data.error || 'Could not submit ballot.');
+      document.getElementById('overlay').classList.remove('show');
+      return;
+    }
+    window.location.href = 'dashboard.html';
+  } catch {
+    alert('Cannot reach server.');
+    document.getElementById('overlay').classList.remove('show');
+  }
+}
+</script>
+</body>
+</html>

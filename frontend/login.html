@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonashVote – Login</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #002a5c; --blue: #006dae; --accent: #00aad2;
+    --light: #f4f7fb; --white: #fff; --text: #1a2233;
+    --muted: #6b7a99; --border: #d6e0f0;
+    --shadow: 0 8px 40px rgba(0,42,92,0.12);
+    --red: #dc2626; --green: #16a34a;
+  }
+  body {
+    font-family: 'DM Sans', sans-serif; background: var(--light);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background-image: radial-gradient(ellipse at 20% 80%, rgba(0,109,174,0.12) 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 10%, rgba(0,170,210,0.10) 0%, transparent 55%);
+  }
+  .card {
+    background: var(--white); border-radius: 20px; padding: 52px 48px;
+    width: 440px; box-shadow: var(--shadow); border: 1px solid var(--border);
+    animation: fadeUp 0.5s ease both;
+  }
+  @keyframes fadeUp { from { opacity:0; transform: translateY(20px); } to { opacity:1; transform: translateY(0); } }
+  .logo { display: flex; align-items: center; gap: 10px; margin-bottom: 32px; }
+  .logo-mark { width: 36px; height: 36px; background: var(--navy); border-radius: 8px; display: grid; place-items: center; font-family: 'DM Serif Display', serif; color: white; font-size: 18px; }
+  .logo-text  { font-size: 15px; font-weight: 600; color: var(--navy); }
+  .logo-sub   { font-size: 11px; color: var(--muted); letter-spacing: 0.5px; text-transform: uppercase; }
+  .tabs { display: flex; background: var(--light); border-radius: 10px; padding: 4px; margin-bottom: 28px; }
+  .tab-btn { flex: 1; padding: 9px; border: none; background: none; border-radius: 7px; font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; color: var(--muted); transition: all 0.2s; }
+  .tab-btn.active { background: white; color: var(--navy); box-shadow: 0 2px 8px rgba(0,42,92,0.1); }
+  h1 { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--navy); margin-bottom: 6px; }
+  .subtitle { font-size: 14px; color: var(--muted); margin-bottom: 28px; }
+  label { display: block; font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 6px; }
+  .input-wrap { position: relative; margin-bottom: 6px; }
+  input[type="email"], input[type="password"] {
+    width: 100%; padding: 13px 16px 13px 40px;
+    border: 1.5px solid var(--border); border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text);
+    background: var(--light); outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0,109,174,0.10); background: white; }
+  input.is-error { border-color: var(--red) !important; }
+  input.is-valid { border-color: var(--green) !important; }
+  .input-icon { position: absolute; left: 13px; top: 50%; transform: translateY(-50%); pointer-events: none; }
+  .field-hint { font-size: 12px; margin-bottom: 16px; min-height: 18px; }
+  .field-hint.valid  { color: var(--green); }
+  .field-hint.error  { color: var(--red); }
+  .alert { padding: 12px 14px; border-radius: 10px; font-size: 13px; margin-bottom: 18px; display: none; line-height: 1.5; }
+  .alert.show { display: block; }
+  .alert.is-error   { background: rgba(220,38,38,0.08); color: var(--red); border: 1px solid rgba(220,38,38,0.2); }
+  .alert.is-success { background: rgba(22,163,74,0.08); color: var(--green); border: 1px solid rgba(22,163,74,0.2); }
+  .monash-note { display: flex; gap: 8px; align-items: flex-start; background: rgba(0,42,92,0.04); border-radius: 8px; padding: 10px 12px; margin-bottom: 18px; font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .monash-badge { background: var(--navy); color: white; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 4px; white-space: nowrap; flex-shrink: 0; margin-top: 1px; }
+  .btn { width: 100%; padding: 14px; background: var(--navy); color: white; border: none; border-radius: 10px; font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer; transition: background 0.2s, transform 0.1s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+  .btn:hover:not(:disabled) { background: var(--blue); }
+  .btn:active:not(:disabled) { transform: scale(0.98); }
+  .btn:disabled { opacity: 0.6; cursor: not-allowed; }
+  .spinner { width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.35); border-top-color: white; border-radius: 50%; animation: spin 0.7s linear infinite; display: none; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .btn.loading .spinner { display: block; }
+  .btn.loading .btn-label { display: none; }
+  .dev-hint { margin-top: 16px; padding: 10px 14px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); border-radius: 8px; font-size: 12px; color: #92400e; display: none; }
+  .dev-hint.show { display: block; }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo">
+    <div class="logo-mark">M</div>
+    <div><div class="logo-text">MonashVote</div><div class="logo-sub">Club Election Portal</div></div>
+  </div>
+
+  <div class="tabs">
+    <button class="tab-btn active" id="tab-login"    onclick="switchTab('login')">Sign In</button>
+    <button class="tab-btn"        id="tab-register" onclick="switchTab('register')">Create Account</button>
+  </div>
+
+  <div class="alert" id="alertBox"></div>
+
+  <h1 id="formTitle">Welcome back</h1>
+  <p class="subtitle" id="formSub">Sign in with your Monash email address.</p>
+
+  <label for="email">Email address</label>
+  <div class="input-wrap">
+    <svg class="input-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="1" y="3" width="14" height="10" rx="2" stroke="#6b7a99" stroke-width="1.3"/>
+      <path d="M1 5.5l7 4.5 7-4.5" stroke="#6b7a99" stroke-width="1.3" stroke-linecap="round"/>
+    </svg>
+    <input type="email" id="email" placeholder="you@student.monash.edu" oninput="onEmailInput()" autocomplete="email">
+  </div>
+  <div class="field-hint" id="emailHint"></div>
+
+  <label for="password">Password</label>
+  <div class="input-wrap">
+    <svg class="input-icon" width="16" height="16" viewBox="0 0 16 16" fill="none">
+      <rect x="3" y="7" width="10" height="7" rx="1.5" stroke="#6b7a99" stroke-width="1.3"/>
+      <path d="M5 7V5a3 3 0 016 0v2" stroke="#6b7a99" stroke-width="1.3" stroke-linecap="round"/>
+    </svg>
+    <input type="password" id="password" placeholder="Enter your password" autocomplete="current-password">
+  </div>
+  <div class="field-hint" id="pwHint"></div>
+
+  <div class="monash-note">
+    <span class="monash-badge">MONASH</span>
+    Only <strong>@student.monash.edu</strong> or <strong>@monash.edu</strong> addresses are accepted. Okta SSO is not required.
+  </div>
+
+  <button class="btn" id="submitBtn" onclick="handleSubmit()">
+    <div class="spinner"></div>
+    <span class="btn-label" id="btnLabel">Sign In</span>
+  </button>
+
+  <div class="dev-hint" id="devHint"></div>
+</div>
+
+<script>
+  const API = ''; // empty = same origin (localhost:3000)
+  let mode = 'login';
+
+  function isMonashEmail(e) {
+    return /^[^\s@]+@(student\.monash\.edu|monash\.edu)$/i.test(e.trim());
+  }
+
+  function switchTab(tab) {
+    mode = tab;
+    document.getElementById('tab-login').classList.toggle('active', tab === 'login');
+    document.getElementById('tab-register').classList.toggle('active', tab === 'register');
+    document.getElementById('formTitle').textContent = tab === 'login' ? 'Welcome back' : 'Create account';
+    document.getElementById('formSub').textContent   = tab === 'login'
+      ? 'Sign in with your Monash email address.'
+      : 'Register with your Monash email to get started.';
+    document.getElementById('btnLabel').textContent  = tab === 'login' ? 'Sign In' : 'Register';
+    setAlert('', '');
+    document.getElementById('devHint').classList.remove('show');
+  }
+
+  function onEmailInput() {
+    const val  = document.getElementById('email').value.trim();
+    const el   = document.getElementById('email');
+    const hint = document.getElementById('emailHint');
+    if (!val) { el.classList.remove('is-valid','is-error'); hint.textContent = ''; hint.className = 'field-hint'; return; }
+    if (isMonashEmail(val)) {
+      el.classList.add('is-valid'); el.classList.remove('is-error');
+      hint.textContent = '✓ Valid Monash email'; hint.className = 'field-hint valid';
+    } else if (val.includes('@')) {
+      el.classList.add('is-error'); el.classList.remove('is-valid');
+      hint.textContent = '✗ Must end in @student.monash.edu or @monash.edu'; hint.className = 'field-hint error';
+    } else {
+      el.classList.remove('is-valid','is-error'); hint.textContent = ''; hint.className = 'field-hint';
+    }
+  }
+
+  function setAlert(msg, type) {
+    const box = document.getElementById('alertBox');
+    if (!msg) { box.className = 'alert'; return; }
+    box.className = `alert show is-${type}`;
+    box.textContent = msg;
+  }
+
+  function setLoading(on) {
+    const btn = document.getElementById('submitBtn');
+    btn.classList.toggle('loading', on);
+    btn.disabled = on;
+  }
+
+  async function handleSubmit() {
+    setAlert('', '');
+    const email = document.getElementById('email').value.trim();
+    const pw    = document.getElementById('password').value;
+
+    if (!isMonashEmail(email)) { setAlert('Please use a valid @student.monash.edu or @monash.edu email.', 'error'); return; }
+    if (pw.length < 8) {
+      const h = document.getElementById('pwHint');
+      h.textContent = 'Password must be at least 8 characters.';
+      h.className = 'field-hint error';
+      return;
+    }
+    document.getElementById('pwHint').textContent = '';
+
+    setLoading(true);
+    const endpoint = mode === 'login' ? '/api/auth/login' : '/api/auth/register';
+
+    try {
+      const res  = await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email, password: pw })
+      });
+      const data = await res.json();
+
+      if (!res.ok) { setAlert(data.error || 'Something went wrong.', 'error'); setLoading(false); return; }
+
+      if (mode === 'register') {
+        setAlert('Account created! Sign in below.', 'success');
+        switchTab('login');
+      } else {
+        sessionStorage.setItem('pendingEmail', email);
+        if (data.devCode) {
+          const dh = document.getElementById('devHint');
+          dh.className = 'dev-hint show';
+          dh.textContent = `🔧 Dev mode – your code is: ${data.devCode}`;
+        }
+        setTimeout(() => window.location.href = 'verification.html', data.devCode ? 1500 : 300);
+      }
+    } catch {
+      setAlert('Cannot reach server. Start the backend with: cd backend && npm start', 'error');
+    }
+    setLoading(false);
+  }
+
+  document.addEventListener('keydown', e => { if (e.key === 'Enter') handleSubmit(); });
+
+  // Auto-redirect if already logged in
+  (async () => {
+    try {
+      const r = await fetch('/api/auth/me', { credentials: 'include' });
+      if (r.ok) window.location.href = 'dashboard.html';
+    } catch {}
+  })();
+</script>
+</body>
+</html>

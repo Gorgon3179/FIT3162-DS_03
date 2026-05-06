@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonashVote – Admin Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #002a5c; --blue: #006dae; --accent: #00aad2;
+    --light: #f4f7fb; --white: #fff; --text: #1a2233;
+    --muted: #6b7a99; --border: #d6e0f0; --shadow: 0 4px 24px rgba(0,42,92,0.09);
+    --amber: #f59e0b; --red: #ef4444; --green: #22c55e;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--light); min-height: 100vh; }
+  nav {
+    background: var(--navy); padding: 0 40px; height: 60px;
+    display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100;
+  }
+  .nav-logo { display: flex; align-items: center; gap: 10px; }
+  .nav-logo-mark { width: 32px; height: 32px; background: white; border-radius: 7px; display: grid; place-items: center; font-family: 'DM Serif Display', serif; color: var(--navy); font-size: 16px; }
+  .nav-logo-text { color: white; font-size: 15px; font-weight: 600; }
+  .admin-chip { background: var(--amber); color: #7c3000; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; letter-spacing: 0.3px; margin-left: 6px; }
+  .nav-right { display: flex; align-items: center; gap: 20px; }
+  .nav-link { color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; }
+  .nav-link:hover { color: white; }
+  .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--amber); border: 2px solid rgba(255,255,255,0.3); display: grid; place-items: center; color: #7c3000; font-size: 13px; font-weight: 700; cursor: pointer; }
+
+  .main { max-width: 1100px; margin: 0 auto; padding: 40px; }
+  .page-header { margin-bottom: 32px; display: flex; justify-content: space-between; align-items: flex-end; }
+  .greeting { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--navy); }
+  .greeting span { color: var(--amber); }
+  .sub { font-size: 14px; color: var(--muted); margin-top: 4px; }
+  .primary-btn {
+    background: var(--navy); color: white; border: none; border-radius: 10px;
+    padding: 11px 20px; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background 0.2s;
+  }
+  .primary-btn:hover { background: var(--blue); }
+
+  /* Stats */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+  .stat-card { background: white; border-radius: 14px; border: 1px solid var(--border); padding: 20px 22px; box-shadow: var(--shadow); }
+  .stat-label { font-size: 12px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+  .stat-val { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--navy); }
+  .stat-change { font-size: 11px; color: #16a34a; margin-top: 4px; font-weight: 500; }
+
+  /* Main grid */
+  .grid { display: grid; grid-template-columns: 320px 1fr; gap: 24px; }
+  .panel { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+  .panel-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); display: flex; align-items: center; justify-content: space-between; }
+  .panel-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
+  .badge { background: var(--accent); color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 10px; }
+  .election-list { padding: 12px; }
+  .election-item { display: flex; align-items: center; padding: 12px 14px; border-radius: 10px; cursor: pointer; transition: background 0.15s; margin-bottom: 6px; border: 1px solid transparent; }
+  .election-item:hover { background: var(--light); border-color: var(--border); }
+  .election-item.active { background: var(--navy); border-color: var(--navy); }
+  .election-item.active .el-name { color: white; }
+  .election-item.active .el-meta { color: rgba(255,255,255,0.6); }
+  .el-dot { width: 8px; height: 8px; border-radius: 50%; background: #22c55e; flex-shrink: 0; margin-right: 12px; box-shadow: 0 0 0 3px rgba(34,197,94,0.2); }
+  .el-name { font-size: 14px; font-weight: 600; color: var(--text); }
+  .el-meta { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .results-btn {
+    width: calc(100% - 24px); margin: 6px 12px 14px;
+    padding: 11px; background: var(--accent); color: white; border: none; border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer;
+    transition: background 0.2s; display: flex; align-items: center; justify-content: center; gap: 6px;
+  }
+  .results-btn:hover { background: var(--blue); }
+
+  /* Admin actions */
+  .action-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 16px; }
+  .action-card { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); padding: 22px; cursor: pointer; transition: box-shadow 0.2s, transform 0.15s, border-color 0.2s; }
+  .action-card:hover { box-shadow: 0 8px 32px rgba(0,42,92,0.14); transform: translateY(-2px); border-color: var(--blue); }
+  .action-icon { width: 42px; height: 42px; border-radius: 10px; display: grid; place-items: center; margin-bottom: 14px; }
+  .action-icon.amber { background: rgba(245,158,11,0.12); }
+  .action-icon.blue { background: rgba(0,109,174,0.10); }
+  .action-icon.red { background: rgba(239,68,68,0.10); }
+  .action-icon.green { background: rgba(34,197,94,0.10); }
+  .action-label { font-size: 14px; font-weight: 600; color: var(--text); margin-bottom: 4px; }
+  .action-desc { font-size: 12px; color: var(--muted); line-height: 1.5; }
+
+  /* Voter table */
+  .table-panel { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+  .table-header { padding: 18px 24px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  table { width: 100%; border-collapse: collapse; }
+  th { font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; padding: 10px 20px; background: var(--light); text-align: left; border-bottom: 1px solid var(--border); }
+  td { padding: 12px 20px; font-size: 13px; color: var(--text); border-bottom: 1px solid #f0f4f9; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: #f8fafd; }
+  .status-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 8px; }
+  .status-pill.voted { background: rgba(34,197,94,0.12); color: #15803d; }
+  .status-pill.pending { background: rgba(245,158,11,0.12); color: #b45309; }
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">M</div>
+    <span class="nav-logo-text">MonashVote</span>
+    <span class="admin-chip">ADMIN</span>
+  </div>
+  <div class="nav-right">
+    <a class="nav-link" href="dashboard.html">Voter View</a>
+    <a class="nav-link" href="#" onclick="logout()">Logout</a>
+    <div class="avatar">AD</div>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-header">
+    <div>
+      <h1 class="greeting">Welcome back, <span>admin</span></h1>
+      <p class="sub">Manage elections, review results, and monitor voter activity.</p>
+    </div>
+    <button class="primary-btn" onclick="alert('Create Election modal would appear here')">+ Initiate Election</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card"><div class="stat-label">Active Elections</div><div class="stat-val" id="statActive">…</div><div class="stat-change" id="statActiveSub"></div></div>
+    <div class="stat-card"><div class="stat-label">Total Voters</div><div class="stat-val" id="statVoters">…</div><div class="stat-change" id="statVotersSub"></div></div>
+    <div class="stat-card"><div class="stat-label">Votes Cast</div><div class="stat-val" id="statVotes">…</div><div class="stat-change" id="statVotesSub"></div></div>
+    <div class="stat-card"><div class="stat-label">Closing Soon</div><div class="stat-val" id="statClosing">…</div><div class="stat-change" style="color:var(--amber)" id="statClosingSub"></div></div>
+  </div>
+
+  <div class="grid">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Active Elections</span>
+        <span class="badge">2</span>
+      </div>
+      <div class="election-list">
+        <div class="election-item active">
+          <div class="el-dot"></div>
+          <div style="flex:1">
+            <div class="el-name">Club 1 Election</div>
+            <div class="el-meta">412 votes · Closes in 2 days</div>
+          </div>
+        </div>
+        <div class="election-item">
+          <div class="el-dot"></div>
+          <div style="flex:1">
+            <div class="el-name">Club 2 Election</div>
+            <div class="el-meta">89 votes · Closes in 4 days</div>
+          </div>
+        </div>
+      </div>
+      <button class="results-btn" onclick="window.location='results.html'">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10h2V6H2v4zm4 0h2V2H6v8zm4 0h2V7h-2v3z" fill="white"/></svg>
+        View Results
+      </button>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:20px;">
+      <div class="action-grid">
+        <div class="action-card" onclick="alert('Initiate Election modal')">
+          <div class="action-icon amber">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="#f59e0b" stroke-width="1.5"/><path d="M10 7v6M7 10h6" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <div class="action-label">Initiate Election</div>
+          <div class="action-desc">Create a new club election with candidates and settings</div>
+        </div>
+        <div class="action-card" onclick="alert('Update Election modal')">
+          <div class="action-icon blue">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 12l-1 4 4-1 8-8-3-3-8 8z" stroke="#006dae" stroke-width="1.5" stroke-linejoin="round"/></svg>
+          </div>
+          <div class="action-label">Update Election</div>
+          <div class="action-desc">Edit election details, candidates, or close an election</div>
+        </div>
+        <div class="action-card" onclick="window.location='results.html'">
+          <div class="action-icon green">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 14h3V8H3v6zm5 0h3V4H8v10zm5 0h3v-4h-3v4z" fill="#16a34a"/></svg>
+          </div>
+          <div class="action-label">Vote History</div>
+          <div class="action-desc">Review past elections and download result reports</div>
+        </div>
+        <div class="action-card" onclick="window.location='traits.html'">
+          <div class="action-icon red">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="7" r="3" stroke="#ef4444" stroke-width="1.5"/><path d="M4 17c0-3.314 2.686-6 6-6s6 2.686 6 6" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/></svg>
+          </div>
+          <div class="action-label">Update Traits</div>
+          <div class="action-desc">Manage trait categories and analytics definitions</div>
+        </div>
+      </div>
+
+      <div class="table-panel">
+        <div class="table-header">
+          <span class="panel-title">Recent Voter Activity</span>
+          <span style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:500">View all</span>
+        </div>
+        <table>
+          <thead><tr><th>Hashed ID</th><th>Election</th><th>Time</th><th>Status</th></tr></thead>
+          <tbody id="activityBody">
+            <tr><td colspan="4" style="text-align:center;color:var(--muted)">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  async function logout() {
+    await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
+    window.location.href = 'login.html';
+  }
+
+  function timeAgo(iso) {
+    const diff = Date.now() - new Date(iso);
+    const mins = Math.floor(diff / 60000);
+    if (mins < 1) return 'Just now';
+    if (mins < 60) return `${mins} min${mins !== 1 ? 's' : ''} ago`;
+    const hrs = Math.floor(mins / 60);
+    return `${hrs} hour${hrs !== 1 ? 's' : ''} ago`;
+  }
+
+  (async () => {
+    // Load stats
+    try {
+      const res = await fetch('/api/admin/stats', { credentials: 'include' });
+      if (res.status === 403) {
+        document.querySelector('.greeting span').textContent = '(not admin)';
+      }
+      if (res.ok) {
+        const d = await res.json();
+        document.getElementById('statActive').textContent = d.activeElections;
+        document.getElementById('statVoters').textContent = d.totalVoters;
+        document.getElementById('statVotes').textContent = d.totalVotes;
+        document.getElementById('statClosing').textContent = d.closingSoon;
+        document.getElementById('statClosingSub').textContent = d.closingSoon > 0 ? 'Within 3 days' : 'None urgent';
+      }
+    } catch {}
+
+    // Load activity
+    try {
+      const res = await fetch('/api/admin/activity', { credentials: 'include' });
+      if (res.ok) {
+        const d = await res.json();
+        const tbody = document.getElementById('activityBody');
+        if (d.activity.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center;color:var(--muted)">No activity yet.</td></tr>';
+        } else {
+          tbody.innerHTML = d.activity.map(a => `
+            <tr>
+              <td>${a.voterHash}</td>
+              <td>${a.electionTitle}</td>
+              <td>${timeAgo(a.submittedAt)}</td>
+              <td><span class="status-pill voted">✓ Voted</span></td>
+            </tr>
+          `).join('');
+        }
+      }
+    } catch {}
+  })();
+</script>
+</body>
+</html>
