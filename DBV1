@@ -1,0 +1,265 @@
+-- ============================================================
+-- Monash Club Voting System Database Schema
+-- PostgreSQL / Supabase compatible
+-- Includes tables, foreign keys, constraints, and indexes
+-- ============================================================
+
+-- Optional: clean reset for development/testing
+-- WARNING: this deletes existing tables and data if uncommented.
+-- DROP TABLE IF EXISTS election_whitelist CASCADE;
+-- DROP TABLE IF EXISTS ballot_vote CASCADE;
+-- DROP TABLE IF EXISTS ballot_rankings CASCADE;
+-- DROP TABLE IF EXISTS ballot_submissions CASCADE;
+-- DROP TABLE IF EXISTS voter_trait_options CASCADE;
+-- DROP TABLE IF EXISTS election_candidates CASCADE;
+-- DROP TABLE IF EXISTS elections CASCADE;
+-- DROP TABLE IF EXISTS trait_options CASCADE;
+-- DROP TABLE IF EXISTS traits CASCADE;
+-- DROP TABLE IF EXISTS trait_categories CASCADE;
+-- DROP TABLE IF EXISTS voters CASCADE;
+-- DROP TABLE IF EXISTS clubs CASCADE;
+
+-- ============================================================
+-- 1. CLUBS
+-- ============================================================
+CREATE TABLE clubs (
+    club_id BIGSERIAL PRIMARY KEY,
+    club_name TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- 2. VOTERS
+-- ============================================================
+CREATE TABLE voters (
+    voter_hash TEXT PRIMARY KEY,
+    salt TEXT NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- 3. TRAIT CATEGORIES
+-- ============================================================
+CREATE TABLE trait_categories (
+    trait_category_id BIGSERIAL PRIMARY KEY,
+    category_name TEXT NOT NULL UNIQUE,
+    display_order INT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- 4. TRAITS
+-- ============================================================
+CREATE TABLE traits (
+    trait_id BIGSERIAL PRIMARY KEY,
+    trait_category_id BIGINT NOT NULL REFERENCES trait_categories(trait_category_id) ON DELETE CASCADE,
+    trait_name TEXT NOT NULL,
+    is_required BOOLEAN NOT NULL DEFAULT FALSE,
+    display_order INT,
+    is_free_text BOOLEAN NOT NULL DEFAULT FALSE,
+    is_multi_options BOOLEAN NOT NULL DEFAULT FALSE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- 5. TRAIT OPTIONS
+-- ============================================================
+CREATE TABLE trait_options (
+    trait_option_id BIGSERIAL PRIMARY KEY,
+    trait_id BIGINT NOT NULL REFERENCES traits(trait_id) ON DELETE CASCADE,
+    option_value TEXT NOT NULL,
+    display_order INT,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- 6. ELECTIONS
+-- ============================================================
+CREATE TABLE elections (
+    election_id BIGSERIAL PRIMARY KEY,
+    club_id BIGINT NOT NULL REFERENCES clubs(club_id) ON DELETE CASCADE,
+    election_name TEXT NOT NULL,
+    description TEXT,
+    election_type TEXT NOT NULL DEFAULT 'IRV',
+    status TEXT NOT NULL DEFAULT 'draft',
+    is_private BOOLEAN NOT NULL DEFAULT FALSE,
+    starts_at TIMESTAMPTZ NOT NULL,
+    ends_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    CHECK (ends_at > starts_at)
+);
+
+-- ============================================================
+-- 7. ELECTION CANDIDATES
+-- ============================================================
+CREATE TABLE election_candidates (
+    candidate_id BIGSERIAL PRIMARY KEY,
+    election_id BIGINT NOT NULL REFERENCES elections(election_id) ON DELETE CASCADE,
+    display_name TEXT NOT NULL,
+    bio TEXT,
+    ballot_order INT,
+    is_active BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- 8. VOTER TRAIT OPTIONS
+-- Stores selected trait options for voters.
+-- trait_option_id links back to trait_options, which links back to traits.
+-- ============================================================
+CREATE TABLE voter_trait_options (
+    voter_trait_response_id BIGSERIAL PRIMARY KEY,
+    voter_hash TEXT NOT NULL REFERENCES voters(voter_hash) ON DELETE CASCADE,
+    trait_option_id BIGINT NOT NULL REFERENCES trait_options(trait_option_id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    last_updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- 9. BALLOT SUBMISSIONS
+-- Stores each version of a voter ballot.
+-- is_current marks the vote that counts.
+-- replaced_ballot_submission_id points to the old ballot this one replaced.
+-- ============================================================
+CREATE TABLE ballot_submissions (
+    ballot_submission_id BIGSERIAL PRIMARY KEY,
+    election_id BIGINT NOT NULL REFERENCES elections(election_id) ON DELETE CASCADE,
+    voter_hash TEXT NOT NULL REFERENCES voters(voter_hash) ON DELETE CASCADE,
+    submission_number INT NOT NULL,
+    submitted_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    is_current BOOLEAN NOT NULL DEFAULT TRUE,
+    replaced_at TIMESTAMPTZ,
+    replaced_ballot_submission_id BIGINT REFERENCES ballot_submissions(ballot_submission_id),
+    UNIQUE (election_id, voter_hash, submission_number),
+    CHECK (submission_number > 0)
+);
+
+-- Ensures only one current ballot per voter per election.
+CREATE UNIQUE INDEX uq_current_ballot_per_voter_election
+ON ballot_submissions (election_id, voter_hash)
+WHERE is_current = TRUE;
+
+-- ============================================================
+-- 10. BALLOT RANKINGS
+-- Stores ranked candidate choices for each ballot submission.
+-- ============================================================
+CREATE TABLE ballot_rankings (
+    ballot_ranking_id BIGSERIAL PRIMARY KEY,
+    ballot_submission_id BIGINT NOT NULL REFERENCES ballot_submissions(ballot_submission_id) ON DELETE CASCADE,
+    candidate_id BIGINT NOT NULL REFERENCES election_candidates(candidate_id) ON DELETE CASCADE,
+    rank_position INT NOT NULL CHECK (rank_position > 0),
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (ballot_submission_id, rank_position),
+    UNIQUE (ballot_submission_id, candidate_id)
+);
+
+-- ============================================================
+-- 11. BALLOT VOTE
+-- Stores voter trait-option snapshots for a given election.
+-- Used for analytics so historical election reports remain stable
+-- even if voter traits change later.
+-- ============================================================
+CREATE TABLE ballot_vote (
+    ballot_elections_trait_options_id BIGSERIAL PRIMARY KEY,
+    voter_hash TEXT NOT NULL REFERENCES voters(voter_hash) ON DELETE CASCADE,
+    trait_option_id BIGINT NOT NULL REFERENCES trait_options(trait_option_id) ON DELETE CASCADE,
+    election_id BIGINT NOT NULL REFERENCES elections(election_id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- ============================================================
+-- 12. ELECTION WHITELIST
+-- Stores voters allowed to vote in private elections.
+-- ============================================================
+CREATE TABLE election_whitelist (
+    whitelist_id BIGSERIAL PRIMARY KEY,
+    voter_hash TEXT NOT NULL REFERENCES voters(voter_hash) ON DELETE CASCADE,
+    election_id BIGINT NOT NULL REFERENCES elections(election_id) ON DELETE CASCADE,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    UNIQUE (voter_hash, election_id)
+);
+
+-- ============================================================
+-- INDEXES
+-- These speed up common joins, lookups, vote counting, and analytics.
+-- Primary keys already create indexes automatically.
+-- ============================================================
+
+-- Clubs / elections
+CREATE INDEX idx_elections_club
+ON elections(club_id);
+
+CREATE INDEX idx_elections_status
+ON elections(status);
+
+CREATE INDEX idx_elections_ends_at
+ON elections(ends_at);
+
+-- Candidates
+CREATE INDEX idx_election_candidates_election
+ON election_candidates(election_id);
+
+-- Traits
+CREATE INDEX idx_traits_category
+ON traits(trait_category_id);
+
+CREATE INDEX idx_trait_options_trait
+ON trait_options(trait_id);
+
+-- Voter trait lookups
+CREATE INDEX idx_voter_trait_options_voter
+ON voter_trait_options(voter_hash);
+
+CREATE INDEX idx_voter_trait_options_option
+ON voter_trait_options(trait_option_id);
+
+-- Ballot submissions
+CREATE INDEX idx_ballot_submissions_election
+ON ballot_submissions(election_id);
+
+CREATE INDEX idx_ballot_submissions_voter
+ON ballot_submissions(voter_hash);
+
+CREATE INDEX idx_ballot_submissions_election_voter
+ON ballot_submissions(election_id, voter_hash);
+
+CREATE INDEX idx_ballot_submissions_current
+ON ballot_submissions(election_id, is_current);
+
+CREATE INDEX idx_ballot_submissions_replaced
+ON ballot_submissions(replaced_ballot_submission_id);
+
+-- Ballot rankings
+CREATE INDEX idx_ballot_rankings_submission
+ON ballot_rankings(ballot_submission_id);
+
+CREATE INDEX idx_ballot_rankings_candidate
+ON ballot_rankings(candidate_id);
+
+CREATE INDEX idx_ballot_rankings_rank
+ON ballot_rankings(rank_position);
+
+-- Ballot vote analytics snapshots
+CREATE INDEX idx_ballot_vote_election
+ON ballot_vote(election_id);
+
+CREATE INDEX idx_ballot_vote_voter
+ON ballot_vote(voter_hash);
+
+CREATE INDEX idx_ballot_vote_trait_option
+ON ballot_vote(trait_option_id);
+
+CREATE INDEX idx_ballot_vote_election_option
+ON ballot_vote(election_id, trait_option_id);
+
+-- Election whitelist
+CREATE INDEX idx_election_whitelist_election
+ON election_whitelist(election_id);
+
+CREATE INDEX idx_election_whitelist_voter
+ON election_whitelist(voter_hash);
+
+-- ============================================================
+-- END OF SCHEMA
+-- ============================================================
