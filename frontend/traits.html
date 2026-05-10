@@ -36,22 +36,23 @@
   h1 { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--navy); margin-bottom: 6px; }
   .subtitle { font-size: 14px; color: var(--muted); line-height: 1.5; }
   .progress { height: 3px; background: var(--border); border-radius: 2px; margin: 24px 0; overflow: hidden; }
-  .progress-bar { height: 100%; width: 33%; background: linear-gradient(90deg, var(--navy), var(--accent)); border-radius: 2px; }
+  .progress-bar { height: 100%; width: 33%; background: linear-gradient(90deg, var(--navy), var(--accent)); border-radius: 2px; transition: width 0.3s; }
   .field { margin-bottom: 22px; }
   label { display: block; font-size: 13px; font-weight: 500; color: var(--text); margin-bottom: 7px; }
   label .req { color: var(--accent); margin-left: 2px; }
-  select, input[type="text"] {
+  select {
     width: 100%; padding: 12px 16px;
     border: 1.5px solid var(--border); border-radius: 10px;
     font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text);
     background: var(--light); outline: none;
     transition: border-color 0.2s, box-shadow 0.2s;
     appearance: none; -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7a99' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat; background-position: right 14px center; padding-right: 38px;
   }
-  select { background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%236b7a99' stroke-width='1.5' fill='none' stroke-linecap='round'/%3E%3C/svg%3E");
-             background-repeat: no-repeat; background-position: right 14px center; padding-right: 38px; }
-  select:focus, input:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0,109,174,0.10); background: white; }
-  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  select:focus { border-color: var(--blue); box-shadow: 0 0 0 3px rgba(0,109,174,0.10); background: white; }
+  .category-heading { font-size: 13px; font-weight: 600; color: var(--navy); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+  .category-heading:first-of-type { border-top: none; padding-top: 0; }
   .privacy-note {
     display: flex; gap: 10px; align-items: flex-start;
     background: rgba(0,109,174,0.05); border: 1px solid rgba(0,109,174,0.12);
@@ -83,58 +84,8 @@
   </div>
   <div class="progress"><div class="progress-bar"></div></div>
 
-  <div class="field">
-    <label>Which course are you doing? <span class="req">*</span></label>
-    <select>
-      <option value="" disabled selected>Select your faculty / course</option>
-      <option>Bachelor of Computer Science</option>
-      <option>Bachelor of Engineering</option>
-      <option>Bachelor of Business</option>
-      <option>Bachelor of Arts</option>
-      <option>Bachelor of Science</option>
-      <option>Bachelor of Laws</option>
-      <option>Bachelor of Medicine</option>
-      <option>Other</option>
-    </select>
-  </div>
-
-  <div class="row">
-    <div class="field">
-      <label>Year of study <span class="req">*</span></label>
-      <select>
-        <option value="" disabled selected>Select year</option>
-        <option>Year 1</option><option>Year 2</option><option>Year 3</option>
-        <option>Year 4</option><option>Year 5+</option><option>Postgraduate</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>Country of origin <span class="req">*</span></label>
-      <select>
-        <option value="" disabled selected>Select country</option>
-        <option>Australia</option><option>China</option><option>India</option>
-        <option>Malaysia</option><option>Indonesia</option><option>Vietnam</option>
-        <option>Other</option>
-      </select>
-    </div>
-  </div>
-
-  <div class="row">
-    <div class="field">
-      <label>Campus <span class="req">*</span></label>
-      <select>
-        <option value="" disabled selected>Select campus</option>
-        <option>Clayton</option><option>Caulfield</option><option>Peninsula</option>
-        <option>Parkville</option><option>Malaysia</option>
-      </select>
-    </div>
-    <div class="field">
-      <label>Clubs currently joined</label>
-      <select>
-        <option value="" disabled selected>Select range</option>
-        <option>0</option><option>1</option><option>2</option>
-        <option>3</option><option>4</option><option>5+</option>
-      </select>
-    </div>
+  <div id="trait-fields">
+    <div style="text-align:center;color:var(--muted);padding:20px;">Loading trait options…</div>
   </div>
 
   <div class="privacy-note">
@@ -146,30 +97,72 @@
   <button class="btn" id="submitBtn" onclick="handleSubmit()">Continue to Elections →</button>
   <p class="skip"><a href="dashboard.html">Skip for now</a></p>
 </div>
+
 <script>
-  // Pre-fill if traits already saved
+  let categories = [];
+
+  // Load trait options from backend
   (async () => {
+    try {
+      const res = await fetch('/api/traits/trait-options');
+      if (!res.ok) throw new Error('load');
+      const data = await res.json();
+      categories = data.categories || [];
+      renderTraits();
+      loadCurrentTraits();
+    } catch (err) {
+      document.getElementById('trait-fields').innerHTML =
+        '<div style="text-align:center;color:#dc2626;padding:20px;">Could not load trait options. Ensure backend is running.</div>';
+    }
+  })();
+
+  function renderTraits() {
+    let html = '';
+    for (const cat of categories) {
+      html += `<div class="category-heading">${cat.category_name}</div>`;
+      for (const trait of cat.traits) {
+        const required = trait.is_required ? ' <span class="req">*</span>' : '';
+        html += `<div class="field">
+          <label>${trait.trait_name}${required}</label>
+          <select data-trait-id="${trait.trait_id}">
+            <option value="">${trait.is_required ? '-- Select --' : 'No preference'}</option>`;
+
+        for (const opt of trait.options) {
+          html += `<option value="${opt.trait_option_id}">${opt.option_value}</option>`;
+        }
+
+        html += `</select></div>`;
+      }
+    }
+    document.getElementById('trait-fields').innerHTML = html;
+  }
+
+  // Pre-fill if traits already saved
+  async function loadCurrentTraits() {
     try {
       const r = await fetch('/api/traits', { credentials: 'include' });
       if (r.ok) {
         const d = await r.json();
-        if (d) {
-          // set select values if they match options
-          document.querySelectorAll('select').forEach(sel => {
-            const key = sel.dataset.key;
-            if (key && d[key]) {
-              [...sel.options].forEach(o => { if (o.value === d[key]) o.selected = true; });
+        if (d && d.trait_option_ids && d.trait_option_ids.length > 0) {
+          const selects = document.querySelectorAll('#trait-fields select');
+          selects.forEach(sel => {
+            for (const opt of sel.options) {
+              if (d.trait_option_ids.includes(parseInt(opt.value))) {
+                opt.selected = true;
+              }
             }
           });
         }
       }
     } catch {}
-  })();
+  }
 
   async function handleSubmit() {
-    const selects = document.querySelectorAll('select');
-    const [faculty, yearOfStudy, countryOfOrigin, campus, clubsJoined] =
-      [...selects].map(s => s.value);
+    const selects = document.querySelectorAll('#trait-fields select');
+    const trait_option_ids = [];
+    selects.forEach(sel => {
+      if (sel.value) trait_option_ids.push(parseInt(sel.value));
+    });
 
     const btn = document.getElementById('submitBtn');
     btn.disabled = true; btn.textContent = 'Saving…';
@@ -179,7 +172,7 @@
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ faculty, yearOfStudy, countryOfOrigin, campus, clubsJoined })
+        body: JSON.stringify({ trait_option_ids })
       });
       if (!res.ok) {
         const d = await res.json();

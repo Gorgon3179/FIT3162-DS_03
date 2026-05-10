@@ -1,12 +1,13 @@
 // routes/auth.js
-// R1: Voter authentication - validates Monash email, no Okta required
-// R3: One vote per user enforced via hashed voter ID
+// Authentication: Monash email, bcrypt password, 6-digit verification code
+// Uses auth_users + verification_codes tables (not Supabase Auth)
 
 const express = require('express');
 const router = express.Router();
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
-const { mem, isDev } = require('../db');
+const crypto = require('crypto');
+const { query } = require('../db');
 const { hashVoterId, generateVerificationCode, sendVerificationEmail } = require('../utils');
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -15,12 +16,11 @@ function isMonashEmail(email) {
   return /^[^\s@]+@(student\.monash\.edu|monash\.edu)$/i.test(email.trim());
 }
 
-function findUser(email) {
-  return mem.users.find(u => u.email === email.toLowerCase());
+function hashCode(code) {
+  return crypto.createHash('sha256').update(code.trim()).digest('hex');
 }
 
 // ─── POST /api/auth/register ──────────────────────────────────────────────────
-// R1: Only Monash emails allowed
 router.post('/register', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -28,37 +28,35 @@ router.post('/register', async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
-
-    // R1: Monash email check
     if (!isMonashEmail(email)) {
       return res.status(400).json({ error: 'Only @student.monash.edu or @monash.edu emails are allowed.' });
     }
-
     if (password.length < 8) {
       return res.status(400).json({ error: 'Password must be at least 8 characters.' });
     }
 
     const normalEmail = email.toLowerCase().trim();
+    const passwordHash = await bcrypt.hash(password, 12);
+    const voterHash = hashVoterId(normalEmail);
+    const salt = crypto.randomBytes(16).toString('hex');
 
-    if (!isDev) {
-      // TODO (your friend): INSERT INTO users (email, password_hash) VALUES ($1, $2)
-      return res.status(501).json({ error: 'DB not configured yet.' });
-    }
-
-    if (findUser(normalEmail)) {
+    // Check if email already registered
+    const existing = await query('SELECT auth_user_id FROM auth_users WHERE email = $1', [normalEmail]);
+    if (existing.length > 0) {
       return res.status(409).json({ error: 'An account with this email already exists.' });
     }
 
-    const passwordHash = await bcrypt.hash(password, 12);
-    const id = mem.users.length + 1;
+    // Insert into voters (anonymous identity)
+    await query(
+      'INSERT INTO voters (voter_hash, salt) VALUES ($1, $2) ON CONFLICT (voter_hash) DO NOTHING',
+      [voterHash, salt]
+    );
 
-    mem.users.push({
-      id,
-      email: normalEmail,
-      passwordHash,
-      verified: false,
-      createdAt: new Date().toISOString()
-    });
+    // Insert into auth_users
+    await query(
+      'INSERT INTO auth_users (email, password_hash, voter_hash) VALUES ($1, $2, $3)',
+      [normalEmail, passwordHash, voterHash]
+    );
 
     res.status(201).json({ message: 'Account created. Please sign in to continue.' });
   } catch (err) {
@@ -68,7 +66,6 @@ router.post('/register', async (req, res) => {
 });
 
 // ─── POST /api/auth/login ─────────────────────────────────────────────────────
-// R1: Validates Monash email + password, then sends verification code
 router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -76,44 +73,48 @@ router.post('/login', async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({ error: 'Email and password are required.' });
     }
-
     if (!isMonashEmail(email)) {
       return res.status(400).json({ error: 'Only @student.monash.edu or @monash.edu emails are allowed.' });
     }
 
     const normalEmail = email.toLowerCase().trim();
 
-    if (!isDev) {
-      // TODO (your friend): SELECT * FROM users WHERE email = $1
-      return res.status(501).json({ error: 'DB not configured yet.' });
-    }
-
-    const user = findUser(normalEmail);
-    if (!user) {
+    // Find user
+    const users = await query(
+      'SELECT auth_user_id, email, password_hash, voter_hash FROM auth_users WHERE email = $1',
+      [normalEmail]
+    );
+    if (users.length === 0) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
-    const passwordOk = await bcrypt.compare(password, user.passwordHash);
+    const user = users[0];
+    const passwordOk = await bcrypt.compare(password, user.password_hash);
     if (!passwordOk) {
       return res.status(401).json({ error: 'Invalid email or password.' });
     }
 
     // Generate and store verification code
     const code = generateVerificationCode();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    const codeHash = hashCode(code);
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000);
 
-    // Remove any existing code for this email
-    const idx = mem.verCodes.findIndex(v => v.email === normalEmail);
-    if (idx !== -1) mem.verCodes.splice(idx, 1);
-    mem.verCodes.push({ email: normalEmail, code, expiresAt });
+    await query(
+      'INSERT INTO verification_codes (email, code_hash, expires_at) VALUES ($1, $2, $3)',
+      [normalEmail, codeHash, expiresAt]
+    );
 
-    // Send (or log in dev mode)
+    // Update last login
+    await query(
+      'UPDATE auth_users SET last_login_at = NOW() WHERE auth_user_id = $1',
+      [user.auth_user_id]
+    );
+
+    // Send email (or log in dev mode)
     await sendVerificationEmail(normalEmail, code);
 
     const response = { message: 'Verification code sent.' };
-
-    // In dev mode, return the code so the frontend can show it (for testing)
-    if (process.env.DEV_MODE === 'true') {
+    if (process.env.DEV_MODE === 'true' || !process.env.EMAIL_USER) {
       response.devCode = code;
     }
 
@@ -125,7 +126,6 @@ router.post('/login', async (req, res) => {
 });
 
 // ─── POST /api/auth/verify ────────────────────────────────────────────────────
-// Verifies the 6-digit code, returns a JWT
 router.post('/verify', async (req, res) => {
   try {
     const { email, code } = req.body;
@@ -134,47 +134,78 @@ router.post('/verify', async (req, res) => {
     }
 
     const normalEmail = email.toLowerCase().trim();
+    const codeHash = hashCode(code);
 
-    const entry = mem.verCodes.find(v => v.email === normalEmail);
-    if (!entry) {
-      return res.status(400).json({ error: 'No verification code found. Please log in again.' });
+    // Find valid, unused code
+    const entries = await query(
+      `SELECT verification_code_id, code_hash, expires_at
+       FROM verification_codes
+       WHERE email = $1 AND used_at IS NULL AND expires_at > NOW()
+       ORDER BY created_at DESC
+       LIMIT 1`,
+      [normalEmail]
+    );
+
+    if (entries.length === 0) {
+      return res.status(400).json({ error: 'No verification code found or it has expired. Please log in again.' });
     }
 
-    if (new Date() > new Date(entry.expiresAt)) {
-      return res.status(400).json({ error: 'Verification code has expired. Please log in again.' });
-    }
+    const entry = entries[0];
 
-    if (entry.code !== code.trim()) {
+    if (entry.code_hash !== codeHash) {
       return res.status(400).json({ error: 'Incorrect code. Please try again.' });
     }
 
-    // Clean up the used code
-    const idx = mem.verCodes.indexOf(entry);
-    mem.verCodes.splice(idx, 1);
+    // Mark code as used
+    await query(
+      'UPDATE verification_codes SET used_at = NOW() WHERE verification_code_id = $1',
+      [entry.verification_code_id]
+    );
 
-    // Mark user as verified
-    const user = findUser(normalEmail);
-    if (user) user.verified = true;
+    // Get user info + admin status
+    const users = await query(
+      'SELECT voter_hash, is_admin FROM auth_users WHERE email = $1',
+      [normalEmail]
+    );
 
-    // R2: Hash the voter ID for anonymity
-    const voterHash = hashVoterId(normalEmail);
+    if (users.length === 0) {
+      // Safety: insert voter if somehow missing
+      const voterHash = hashVoterId(normalEmail);
+      const salt = crypto.randomBytes(16).toString('hex');
+      await query(
+        'INSERT INTO voters (voter_hash, salt) VALUES ($1, $2) ON CONFLICT (voter_hash) DO NOTHING',
+        [voterHash, salt]
+      );
+      // Also insert auth_users row
+      await query(
+        'INSERT INTO auth_users (email, password_hash, voter_hash, is_admin) VALUES ($1, $2, $3, $4) ON CONFLICT (email) DO NOTHING',
+        [normalEmail, '', voterHash, false]
+      );
+    }
+
+    const user = users[0] || { voter_hash: hashVoterId(normalEmail), is_admin: false };
+
+    // Ensure voter exists
+    await query(
+      'INSERT INTO voters (voter_hash, salt) VALUES ($1, $2) ON CONFLICT (voter_hash) DO NOTHING',
+      [user.voter_hash, crypto.randomBytes(16).toString('hex')]
+    );
 
     // Issue JWT
     const token = jwt.sign(
-      { userId: user ? user.id : null, email: normalEmail, voterHash },
+      { voterHash: user.voter_hash, isAdmin: user.is_admin },
       process.env.JWT_SECRET || 'dev_secret',
       { expiresIn: '8h' }
     );
 
-    // Set as HTTP-only cookie (more secure than localStorage)
     res.cookie('token', token, {
       httpOnly: true,
       sameSite: 'lax',
       secure: process.env.NODE_ENV === 'production',
-      maxAge: 8 * 60 * 60 * 1000 // 8 hours
+      maxAge: 8 * 60 * 60 * 1000
     });
 
-    res.json({ message: 'Verified successfully.', voterHash });
+    res.json({ message: 'Verified successfully.', voterHash: user.voter_hash });
   } catch (err) {
     console.error('[auth/verify]', err);
     res.status(500).json({ error: 'Server error.' });
@@ -182,14 +213,16 @@ router.post('/verify', async (req, res) => {
 });
 
 // ─── GET /api/auth/me ─────────────────────────────────────────────────────────
-// Returns current user info if logged in
 router.get('/me', (req, res) => {
   const token = req.cookies?.token;
   if (!token) return res.status(401).json({ error: 'Not logged in.' });
 
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'dev_secret');
-    res.json({ email: decoded.email, voterHash: decoded.voterHash });
+    res.json({
+      voterHash: decoded.voterHash,
+      isAdmin: decoded.isAdmin || false
+    });
   } catch {
     res.status(401).json({ error: 'Session expired.' });
   }

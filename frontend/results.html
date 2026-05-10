@@ -21,13 +21,12 @@
   .nav-right { display: flex; align-items: center; gap: 16px; }
   .back-btn { color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 500; text-decoration: none; }
   .back-btn:hover { color: white; }
-  .avatar { width: 36px; height: 36px; border-radius: 50%; background: rgba(255,255,255,0.15); border: 2px solid rgba(255,255,255,0.3); display: grid; place-items: center; color: white; font-size: 13px; font-weight: 600; }
 
   .main { max-width: 1100px; margin: 0 auto; padding: 40px; }
   .page-header { margin-bottom: 32px; display: flex; justify-content: space-between; align-items: flex-start; }
   .title-area h1 { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--navy); margin-bottom: 4px; }
   .title-area p { font-size: 14px; color: var(--muted); }
-  .tab-row { display: flex; gap: 8px; margin-bottom: 24px; }
+  .tab-row { display: flex; gap: 8px; margin-bottom: 24px; flex-wrap: wrap; }
   .tab {
     padding: 8px 18px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border);
     background: white; color: var(--muted); transition: all 0.15s;
@@ -37,7 +36,6 @@
 
   .grid { display: grid; grid-template-columns: 340px 1fr; gap: 24px; align-items: start; }
 
-  /* Results panel */
   .panel { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
   .panel-header { padding: 20px 24px 16px; border-bottom: 1px solid var(--border); }
   .panel-title { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; }
@@ -55,14 +53,13 @@
   .result-rank.r4, .result-rank.r5 { background: var(--border); color: var(--muted); }
   .result-pct { font-size: 13px; font-weight: 700; color: var(--navy); }
   .bar-track { height: 8px; background: var(--border); border-radius: 4px; overflow: hidden; }
-  .bar-fill { height: 100%; border-radius: 4px; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); }
+  .bar-fill { height: 100%; border-radius: 4px; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1); width: 0%; }
   .bar-fill.r1 { background: linear-gradient(90deg, var(--navy), var(--blue)); }
   .bar-fill.r2 { background: var(--blue); }
   .bar-fill.r3 { background: var(--accent); }
   .bar-fill.r4, .bar-fill.r5 { background: #b0c4d8; }
   .votes-count { font-size: 11px; color: var(--muted); margin-top: 3px; }
 
-  /* Viz panel */
   .viz-panel { display: flex; flex-direction: column; gap: 20px; }
   .trait-selector { background: white; border-radius: 14px; border: 1px solid var(--border); padding: 20px 24px; box-shadow: var(--shadow); }
   .trait-selector h3 { font-size: 13px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 14px; }
@@ -74,14 +71,11 @@
   .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
   .chart-panel { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); padding: 22px; }
   .chart-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 16px; }
-  canvas { display: block; }
 
-  .download-btn {
-    width: 100%; padding: 13px; background: var(--navy); color: white; border: none; border-radius: 12px;
-    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600; cursor: pointer;
-    display: flex; align-items: center; justify-content: center; gap: 8px; transition: background 0.2s;
+  .not-available {
+    text-align: center; padding: 60px 20px; color: var(--muted); font-size: 15px; line-height: 1.6;
   }
-  .download-btn:hover { background: var(--blue); }
+  .not-available strong { color: var(--navy); }
 </style>
 </head>
 <body>
@@ -93,196 +87,263 @@
   <div class="nav-right">
     <a class="back-btn" href="dashboard.html">← Dashboard</a>
     <a class="back-btn" href="dashboard-admin.html">Admin</a>
-    <div class="avatar">01</div>
   </div>
 </nav>
 
 <div class="main">
   <div class="page-header">
     <div class="title-area">
-      <h1>Result &amp; Visualisation for Club 1</h1>
-      <p>IRV tally complete · 412 ballots counted · Final results</p>
+      <h1 id="resultTitle">Results &amp; Visualisation</h1>
+      <p id="resultSub">Select an election to view results.</p>
     </div>
   </div>
 
-  <div class="tab-row">
-    <div class="tab active" onclick="setTab(this,'club1')">Club 1 Election</div>
-    <div class="tab" onclick="setTab(this,'club2')">Club 2 Election</div>
+  <div class="tab-row" id="electionTabs">
+    <span style="color:var(--muted);font-size:13px;">Loading elections…</span>
   </div>
 
-  <div class="grid">
-    <div>
-      <div class="panel">
-        <div class="winner-banner">
-          <div class="winner-crown">👑</div>
-          <div class="winner-text">
-            <h3>Candidate 3 — Winner</h3>
-            <p>Elected after IRV round 3 · 38.6% final share</p>
-          </div>
-        </div>
-        <div class="panel-header"><span class="panel-title">Final Rankings</span></div>
-        <div class="result-list">
-          <div class="result-item">
-            <div class="result-label">
-              <span class="result-name"><span class="result-rank">1</span>Candidate 3</span>
-              <span class="result-pct">38.6%</span>
-            </div>
-            <div class="bar-track"><div class="bar-fill r1" style="width:0%" data-w="86%"></div></div>
-            <div class="votes-count">159 votes</div>
-          </div>
-          <div class="result-item">
-            <div class="result-label">
-              <span class="result-name"><span class="result-rank r2">2</span>Candidate 2</span>
-              <span class="result-pct">28.2%</span>
-            </div>
-            <div class="bar-track"><div class="bar-fill r2" style="width:0%" data-w="63%"></div></div>
-            <div class="votes-count">116 votes</div>
-          </div>
-          <div class="result-item">
-            <div class="result-label">
-              <span class="result-name"><span class="result-rank r3">3</span>Candidate 5</span>
-              <span class="result-pct">17.5%</span>
-            </div>
-            <div class="bar-track"><div class="bar-fill r3" style="width:0%" data-w="39%"></div></div>
-            <div class="votes-count">72 votes</div>
-          </div>
-          <div class="result-item">
-            <div class="result-label">
-              <span class="result-name"><span class="result-rank r4">4</span>Candidate 1</span>
-              <span class="result-pct">9.7%</span>
-            </div>
-            <div class="bar-track"><div class="bar-fill r4" style="width:0%" data-w="22%"></div></div>
-            <div class="votes-count">40 votes</div>
-          </div>
-          <div class="result-item">
-            <div class="result-label">
-              <span class="result-name"><span class="result-rank r5">5</span>Candidate 4</span>
-              <span class="result-pct">6.0%</span>
-            </div>
-            <div class="bar-track"><div class="bar-fill r5" style="width:0%" data-w="14%"></div></div>
-            <div class="votes-count">25 votes</div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <div class="viz-panel">
-      <div class="trait-selector">
-        <h3>Break down by voter trait</h3>
-        <div class="trait-pills">
-          <div class="trait-pill active">Year of Study</div>
-          <div class="trait-pill">Faculty</div>
-          <div class="trait-pill">Campus</div>
-          <div class="trait-pill">Country of Origin</div>
-          <div class="trait-pill">Clubs Joined</div>
-        </div>
-      </div>
-
-      <div class="charts-row">
-        <div class="chart-panel">
-          <div class="chart-title">Votes by Year of Study</div>
-          <canvas id="pieChart" width="260" height="220"></canvas>
-        </div>
-        <div class="chart-panel">
-          <div class="chart-title">1st Preference by Year</div>
-          <canvas id="barChart" width="280" height="220"></canvas>
-        </div>
-      </div>
-
-      <button class="download-btn">
-        <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M8 2v8M5 7l3 3 3-3M3 12h10" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        Download Results Report (PDF)
-      </button>
+  <div id="resultContent">
+    <div class="not-available">
+      <strong>Select an election</strong> above to view its results.
     </div>
   </div>
 </div>
 
 <script>
-// Animate bars
-setTimeout(() => {
-  document.querySelectorAll('.bar-fill').forEach(b => {
-    b.style.width = b.dataset.w;
-  });
-}, 100);
+  let allElections = [];
+  let currentElectionId = null;
+  let currentTrait = null;
 
-function setTab(el, id) {
-  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-  el.classList.add('active');
-}
+  const COLOR_PALETTE = ['#002a5c','#006dae','#00aad2','#7dd3fc','#a5b4fc','#e2e8f0','#94a3b8','#475569'];
 
-document.querySelectorAll('.trait-pill').forEach(pill => {
-  pill.addEventListener('click', () => {
+  async function loadElections() {
+    try {
+      const res = await fetch('/api/elections', { credentials: 'include' });
+      if (!res.ok) return;
+      const data = await res.json();
+      allElections = data.elections || [];
+      renderTabs();
+    } catch {}
+  }
+
+  function renderTabs() {
+    const tabsEl = document.getElementById('electionTabs');
+    if (allElections.length === 0) {
+      tabsEl.innerHTML = '<span style="color:var(--muted);font-size:13px;">No elections available.</span>';
+      return;
+    }
+    tabsEl.innerHTML = allElections.map(e =>
+      `<div class="tab" onclick="selectElection(${e.id})">${e.title}</div>`
+    ).join('');
+  }
+
+  async function selectElection(id) {
+    currentElectionId = id;
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    const tabs = document.querySelectorAll('.tab');
+    const idx = allElections.findIndex(e => e.id === id);
+    if (idx >= 0 && tabs[idx]) tabs[idx].classList.add('active');
+
+    document.getElementById('resultContent').innerHTML =
+      '<div class="not-available">Loading results…</div>';
+
+    try {
+      const res = await fetch(`/api/elections/${id}/results`, { credentials: 'include' });
+      const data = await res.json();
+
+      if (!data.resultsAvailable) {
+        document.getElementById('resultContent').innerHTML =
+          `<div class="not-available">
+            <strong>${data.message || 'Results not yet available.'}</strong>
+            <p style="margin-top:8px;">Election ends: ${new Date(data.endsAt).toLocaleDateString()}</p>
+          </div>`;
+        return;
+      }
+
+      if (data.totalVotes === 0) {
+        document.getElementById('resultContent').innerHTML =
+          '<div class="not-available"><strong>No ballots</strong> have been cast in this election yet.</div>';
+        return;
+      }
+
+      document.getElementById('resultTitle').textContent = data.electionTitle;
+      document.getElementById('resultSub').textContent = `IRV tally complete · ${data.totalVotes} ballots counted`;
+
+      currentTrait = Object.keys(data.traitBreakdown || {})[0] || null;
+
+      renderAll(data);
+    } catch {
+      document.getElementById('resultContent').innerHTML =
+        '<div class="not-available">Failed to load results. Ensure backend is running.</div>';
+    }
+  }
+
+  function renderAll(data) {
+    const winner = data.winner;
+    const tally = data.finalTally || [];
+    const maxVotes = tally.length > 0 ? tally[0].votes : 1;
+
+    let winnerHTML = '';
+    if (winner) {
+      winnerHTML = `
+        <div class="winner-banner">
+          <div class="winner-crown">👑</div>
+          <div class="winner-text">
+            <h3>${winner.candidateName} — Winner</h3>
+            <p>Elected · ${winner.votes} first preference votes</p>
+          </div>
+        </div>`;
+    }
+
+    let tallyHTML = tally.map((t, i) => {
+      const rankClass = ['r1','r2','r3','r4','r5'][i] || 'r5';
+      const pct = data.totalVotes > 0 ? ((t.votes / data.totalVotes) * 100).toFixed(1) : '0.0';
+      return `
+        <div class="result-item">
+          <div class="result-label">
+            <span class="result-name"><span class="result-rank ${i > 0 ? rankClass : ''}">${i + 1}</span>${t.display_name}</span>
+            <span class="result-pct">${pct}%</span>
+          </div>
+          <div class="bar-track"><div class="bar-fill ${rankClass}" data-w="${(t.votes / maxVotes * 100).toFixed(0)}%"></div></div>
+          <div class="votes-count">${t.votes} votes</div>
+        </div>`;
+    }).join('');
+
+    // Trait selector
+    let traitPillsHTML = Object.keys(data.traitBreakdown || {}).map(t =>
+      `<div class="trait-pill ${t === currentTrait ? 'active' : ''}" onclick="switchTrait('${t}')">${t}</div>`
+    ).join('');
+
+    let chartsHTML = `<div class="charts-row"><div class="chart-panel"><div class="chart-title" id="chartTitle">First Preference by Trait</div><canvas id="barChart" width="280" height="220"></canvas></div></div>`;
+
+    document.getElementById('resultContent').innerHTML = `
+      <div class="grid">
+        <div>
+          <div class="panel">
+            ${winnerHTML}
+            <div class="panel-header"><span class="panel-title">First Preferences</span></div>
+            <div class="result-list">${tallyHTML}</div>
+          </div>
+        </div>
+        <div class="viz-panel">
+          <div class="trait-selector">
+            <h3>Break down by voter trait</h3>
+            <div class="trait-pills">${traitPillsHTML}</div>
+          </div>
+          ${chartsHTML}
+        </div>
+      </div>`;
+
+    // Animate bars
+    setTimeout(() => {
+      document.querySelectorAll('.bar-fill').forEach(b => {
+        b.style.width = b.dataset.w;
+      });
+    }, 50);
+
+    // Draw chart
+    if (currentTrait) drawTraitChart(data);
+  }
+
+  function switchTrait(traitName) {
+    currentTrait = traitName;
     document.querySelectorAll('.trait-pill').forEach(p => p.classList.remove('active'));
-    pill.classList.add('active');
-  });
-});
 
-// Pie chart
-(function() {
-  const canvas = document.getElementById('pieChart');
-  const ctx = canvas.getContext('2d');
-  const slices = [
-    { pct: 0.38, color: '#002a5c', label: 'Year 1' },
-    { pct: 0.27, color: '#006dae', label: 'Year 2' },
-    { pct: 0.20, color: '#00aad2', label: 'Year 3' },
-    { pct: 0.10, color: '#7dd3fc', label: 'Year 4' },
-    { pct: 0.05, color: '#a5b4fc', label: 'Year 5+' },
-  ];
-  const cx = 110, cy = 100, r = 80;
-  let start = -Math.PI / 2;
-  slices.forEach(s => {
-    const end = start + s.pct * 2 * Math.PI;
-    ctx.beginPath();
-    ctx.moveTo(cx, cy);
-    ctx.arc(cx, cy, r, start, end);
-    ctx.closePath();
-    ctx.fillStyle = s.color;
-    ctx.fill();
-    start = end;
-  });
-  // Legend
-  let ly = 20;
-  slices.forEach(s => {
-    ctx.fillStyle = s.color;
-    ctx.fillRect(225, ly, 12, 12);
-    ctx.fillStyle = '#6b7a99';
-    ctx.font = '11px DM Sans';
-    ctx.fillText(s.label + ' (' + Math.round(s.pct*100) + '%)', 242, ly + 10);
-    ly += 22;
-  });
-})();
+    // Find the matching pill and activate it
+    const pills = document.querySelectorAll('.trait-pill');
+    for (const pill of pills) {
+      if (pill.textContent === traitName) pill.classList.add('active');
+    }
 
-// Bar chart
-(function() {
-  const canvas = document.getElementById('barChart');
-  const ctx = canvas.getContext('2d');
-  const bars = [
-    { label: 'Y1', val: 0.45, color: '#002a5c' },
-    { label: 'Y2', val: 0.62, color: '#006dae' },
-    { label: 'Y3', val: 0.38, color: '#00aad2' },
-    { label: 'Y4', val: 0.55, color: '#7dd3fc' },
-    { label: 'Y5+', val: 0.28, color: '#a5b4fc' },
-  ];
-  const maxH = 160, barW = 36, gap = 16, startX = 24, baseY = 195;
-  bars.forEach((b, i) => {
-    const x = startX + i * (barW + gap);
-    const h = b.val * maxH;
-    const gradient = ctx.createLinearGradient(x, baseY - h, x, baseY);
-    gradient.addColorStop(0, b.color);
-    gradient.addColorStop(1, b.color + '99');
-    ctx.fillStyle = gradient;
-    ctx.beginPath();
-    ctx.roundRect(x, baseY - h, barW, h, [6, 6, 0, 0]);
-    ctx.fill();
-    ctx.fillStyle = '#6b7a99';
-    ctx.font = '11px DM Sans';
-    ctx.textAlign = 'center';
-    ctx.fillText(b.label, x + barW / 2, baseY + 14);
-    ctx.fillStyle = '#1a2233';
-    ctx.font = '600 11px DM Sans';
-    ctx.fillText(Math.round(b.val * 100) + '%', x + barW / 2, baseY - h - 5);
-  });
-})();
+    // Redraw the chart by re-running with current data
+    drawTraitChart(null, traitName);
+  }
+
+  function drawTraitChart(data, traitNameOverride) {
+    if (!data && !traitNameOverride) return;
+    const trait = traitNameOverride || currentTrait;
+    const breakdown = data?.traitBreakdown || allElections[0]?.traitBreakdown || {};
+
+    if (!trait || !breakdown[trait]) return;
+
+    const traitData = breakdown[trait];
+
+    // Get all unique candidate names across all option values
+    const candidateSet = new Set();
+    for (const [opt, candidates] of Object.entries(traitData)) {
+      for (const name of Object.keys(candidates)) {
+        candidateSet.add(name);
+      }
+    }
+    const candidates = [...candidateSet];
+
+    // Group data: each option_value is a group, each candidate is a bar
+    const optionValues = Object.keys(traitData);
+    const canvas = document.getElementById('barChart');
+    if (!canvas) return;
+    const ctx = canvas.getContext('2d');
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    document.getElementById('chartTitle').textContent = `First Preference by ${trait}`;
+
+    const barGroupWidth = 24;
+    const gap = 4;
+    const groupGap = 12;
+    const numOptions = optionValues.length;
+    const numCandidates = candidates.length;
+    const totalWidth = numOptions * (numCandidates * barGroupWidth + groupGap);
+    const maxBarH = 160;
+    const startX = 30;
+    const baseY = 195;
+
+    // Legend
+    let ly = 10;
+    candidates.forEach((c, i) => {
+      ctx.fillStyle = COLOR_PALETTE[i % COLOR_PALETTE.length];
+      ctx.fillRect(220, ly + i * 16, 10, 10);
+      ctx.fillStyle = '#6b7a99';
+      ctx.font = '10px DM Sans';
+      ctx.fillText(c, 234, ly + i * 16 + 10);
+    });
+
+    // Find max vote
+    let globalMax = 1;
+    for (const opt of optionValues) {
+      for (const cand of candidates) {
+        const val = traitData[opt][cand] || 0;
+        if (val > globalMax) globalMax = val;
+      }
+    }
+
+    // Draw grouped bars
+    optionValues.forEach((opt, oi) => {
+      const groupX = startX + oi * (numCandidates * (barGroupWidth + gap) + groupGap);
+      candidates.forEach((cand, ci) => {
+        const val = traitData[opt][cand] || 0;
+        const x = groupX + ci * (barGroupWidth + gap);
+        const h = (val / globalMax) * maxBarH;
+        ctx.fillStyle = COLOR_PALETTE[ci % COLOR_PALETTE.length];
+        ctx.beginPath();
+        ctx.roundRect(x, baseY - h, barGroupWidth, h, [4, 4, 0, 0]);
+        ctx.fill();
+        if (val > 0) {
+          ctx.fillStyle = '#1a2233';
+          ctx.font = '600 9px DM Sans';
+          ctx.textAlign = 'center';
+          ctx.fillText(val, x + barGroupWidth / 2, baseY - h - 4);
+        }
+      });
+      // Option label
+      ctx.fillStyle = '#6b7a99';
+      ctx.font = '10px DM Sans';
+      ctx.textAlign = 'center';
+      const shortLabel = opt.length > 10 ? opt.slice(0, 9) + '…' : opt;
+      ctx.fillText(shortLabel, groupX + (numCandidates * (barGroupWidth + gap) - gap) / 2, baseY + 14);
+    });
+  }
+
+  // Initialize
+  loadElections();
 </script>
 </body>
 </html>

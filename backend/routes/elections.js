@@ -1,183 +1,320 @@
 // routes/elections.js
-// R3: One vote per user per election (enforced via voterHash uniqueness)
-// R6: Results broken down by voter traits
-// R9: Front-end voting API (IRV ranked-choice ballot submission)
+// Voting API: election listing, ballot submission, vote replacement, results
 
 const express = require('express');
 const router = express.Router();
-const { mem, isDev } = require('../db');
+const { query, getClient } = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { runIRV } = require('../utils');
 
 // ─── GET /api/elections ───────────────────────────────────────────────────────
-// Returns all open elections (voter must be logged in)
-router.get('/', authenticate, (req, res) => {
-  if (!isDev) {
-    // TODO (your friend): SELECT * FROM elections WHERE status = 'open'
-    return res.status(501).json({ error: 'DB not configured.' });
+// Returns all open elections within their voting window
+router.get('/', authenticate, async (req, res) => {
+  try {
+    const { voterHash } = req.user;
+
+    const elections = await query(`
+      SELECT
+        e.election_id AS id,
+        e.election_name AS title,
+        e.description,
+        e.status,
+        e.starts_at,
+        e.ends_at AS "closesAt",
+        e.election_type,
+        (SELECT COUNT(*) FROM election_candidates ec WHERE ec.election_id = e.election_id)::int AS "candidateCount",
+        EXISTS(
+          SELECT 1 FROM ballot_submissions bs
+          WHERE bs.election_id = e.election_id
+            AND bs.voter_hash = $1
+            AND bs.is_current = TRUE
+        ) AS "hasVoted",
+        (SELECT bs.submission_number FROM ballot_submissions bs
+         WHERE bs.election_id = e.election_id
+           AND bs.voter_hash = $1
+           AND bs.is_current = TRUE)::int AS "submissionNumber"
+      FROM elections e
+      WHERE e.status = 'open'
+        AND NOW() BETWEEN e.starts_at AND e.ends_at
+      ORDER BY e.ends_at
+    `, [voterHash]);
+
+    res.json({ elections });
+  } catch (err) {
+    console.error('[elections/list]', err);
+    res.status(500).json({ error: 'Server error.' });
   }
-
-  const { voterHash } = req.user;
-
-  const elections = mem.elections.map(e => {
-    const hasVoted = mem.ballots.some(
-      b => b.electionId === e.id && b.voterHash === voterHash
-    );
-    return {
-      id: e.id,
-      title: e.title,
-      description: e.description,
-      status: e.status,
-      closesAt: e.closesAt,
-      candidateCount: e.candidates.length,
-      hasVoted
-    };
-  });
-
-  res.json({ elections });
 });
 
 // ─── GET /api/elections/:id ───────────────────────────────────────────────────
-// Returns a single election with its candidates (randomised order per R13)
-router.get('/:id', authenticate, (req, res) => {
-  const electionId = parseInt(req.params.id);
+// Returns single election with candidates (randomized order)
+router.get('/:id', authenticate, async (req, res) => {
+  try {
+    const electionId = parseInt(req.params.id, 10);
+    const { voterHash } = req.user;
+    if (isNaN(electionId)) return res.status(400).json({ error: 'Invalid election ID.' });
 
-  if (!isDev) {
-    // TODO (your friend): SELECT elections.*, candidates.* FROM elections JOIN election_candidates ...
-    return res.status(501).json({ error: 'DB not configured.' });
+    const electionRows = await query(
+      'SELECT election_id, election_name, description, status, election_type, starts_at, ends_at FROM elections WHERE election_id = $1',
+      [electionId]
+    );
+    if (electionRows.length === 0) return res.status(404).json({ error: 'Election not found.' });
+    const e = electionRows[0];
+
+    const candidates = await query(
+      'SELECT candidate_id AS id, display_name AS name, bio FROM election_candidates WHERE election_id = $1 AND is_active = TRUE ORDER BY RANDOM()',
+      [electionId]
+    );
+
+    const votedRows = await query(
+      'SELECT submission_number FROM ballot_submissions WHERE election_id = $1 AND voter_hash = $2 AND is_current = TRUE',
+      [electionId, voterHash]
+    );
+
+    res.json({
+      id: e.election_id,
+      title: e.election_name,
+      description: e.description,
+      status: e.status,
+      electionType: e.election_type,
+      startsAt: e.starts_at,
+      closesAt: e.ends_at,
+      candidates,
+      hasVoted: votedRows.length > 0,
+      submissionNumber: votedRows.length > 0 ? votedRows[0].submission_number : 0
+    });
+  } catch (err) {
+    console.error('[elections/detail]', err);
+    res.status(500).json({ error: 'Server error.' });
   }
-
-  const election = mem.elections.find(e => e.id === electionId);
-  if (!election) return res.status(404).json({ error: 'Election not found.' });
-
-  const hasVoted = mem.ballots.some(
-    b => b.electionId === electionId && b.voterHash === req.user.voterHash
-  );
-
-  // R13: Randomise candidate order for each voter
-  const candidates = [...election.candidates].sort(() => Math.random() - 0.5);
-
-  res.json({
-    id: election.id,
-    title: election.title,
-    description: election.description,
-    status: election.status,
-    closesAt: election.closesAt,
-    candidates,
-    hasVoted
-  });
 });
 
 // ─── POST /api/elections/:id/vote ─────────────────────────────────────────────
-// R9: Submit a ranked-choice ballot
-// R3: Prevents duplicate votes using voterHash
-router.post('/:id/vote', authenticate, (req, res) => {
-  const electionId = parseInt(req.params.id);
-  const { voterHash } = req.user;
+// Submit or replace a ranked-choice ballot (vote replacement supported)
+router.post('/:id/vote', authenticate, async (req, res) => {
+  try {
+    const electionId = parseInt(req.params.id, 10);
+    const { voterHash } = req.user;
+    const { rankings } = req.body;
 
-  if (!isDev) {
-    // TODO (your friend):
-    // 1. Check ballot_submissions WHERE election_id=$1 AND voter_hash=$2
-    // 2. If exists → 409
-    // 3. INSERT ballot_submissions, then INSERT ballot_rankings
-    return res.status(501).json({ error: 'DB not configured.' });
-  }
-
-  const election = mem.elections.find(e => e.id === electionId);
-  if (!election) return res.status(404).json({ error: 'Election not found.' });
-  if (election.status !== 'open') return res.status(400).json({ error: 'This election is closed.' });
-
-  // R3: Check for existing vote
-  const alreadyVoted = mem.ballots.some(
-    b => b.electionId === electionId && b.voterHash === voterHash
-  );
-  if (alreadyVoted) {
-    return res.status(409).json({ error: 'You have already voted in this election.' });
-  }
-
-  // Validate rankings
-  const { rankings } = req.body; // [{ candidateId, rank }]
-  if (!rankings || !Array.isArray(rankings) || rankings.length === 0) {
-    return res.status(400).json({ error: 'Rankings are required.' });
-  }
-
-  const validCandidateIds = election.candidates.map(c => c.id);
-  for (const r of rankings) {
-    if (!validCandidateIds.includes(r.candidateId)) {
-      return res.status(400).json({ error: `Invalid candidate ID: ${r.candidateId}` });
+    if (isNaN(electionId)) return res.status(400).json({ error: 'Invalid election ID.' });
+    if (!rankings || !Array.isArray(rankings) || rankings.length === 0) {
+      return res.status(400).json({ error: 'Rankings are required.' });
     }
-    if (typeof r.rank !== 'number' || r.rank < 1 || r.rank > election.candidates.length) {
-      return res.status(400).json({ error: 'Invalid rank value.' });
+
+    const electionRows = await query(
+      `SELECT election_id, status FROM elections
+       WHERE election_id = $1 AND status = 'open' AND NOW() BETWEEN starts_at AND ends_at`,
+      [electionId]
+    );
+    if (electionRows.length === 0) {
+      return res.status(400).json({ error: 'Election not found or is closed.' });
     }
+
+    const candidateRows = await query(
+      'SELECT candidate_id FROM election_candidates WHERE election_id = $1 AND is_active = TRUE',
+      [electionId]
+    );
+    const validIds = new Set(candidateRows.map(c => Number(c.candidate_id)));
+
+    for (const r of rankings) {
+      if (!validIds.has(r.candidate_id)) {
+        return res.status(400).json({ error: `Invalid candidate ID: ${r.candidate_id}` });
+      }
+      if (typeof r.rank_position !== 'number' || r.rank_position < 1 || r.rank_position > validIds.size) {
+        return res.status(400).json({ error: 'Invalid rank value.' });
+      }
+    }
+    const rankValues = rankings.map(r => r.rank_position);
+    if (new Set(rankValues).size !== rankValues.length) {
+      return res.status(400).json({ error: 'Each rank must be assigned to only one candidate.' });
+    }
+
+    const dbClient = getClient();
+    if (!dbClient) {
+      return res.status(500).json({ error: 'Database not connected.' });
+    }
+    await dbClient.query('BEGIN');
+
+    const currentBallot = await query(
+      `SELECT ballot_submission_id, submission_number
+       FROM ballot_submissions
+       WHERE election_id = $1 AND voter_hash = $2 AND is_current = TRUE`,
+      [electionId, voterHash]
+    );
+
+    let oldBallotId = null;
+    let submissionNumber = 1;
+
+    if (currentBallot.length > 0) {
+      oldBallotId = currentBallot[0].ballot_submission_id;
+      submissionNumber = currentBallot[0].submission_number + 1;
+
+      await query(
+        `UPDATE ballot_submissions
+         SET is_current = FALSE, replaced_at = NOW()
+         WHERE ballot_submission_id = $1`,
+        [oldBallotId]
+      );
+    }
+
+    const newBallot = await query(
+      `INSERT INTO ballot_submissions
+        (election_id, voter_hash, submission_number, submitted_at, is_current, replaced_ballot_submission_id)
+       VALUES ($1, $2, $3, NOW(), TRUE, $4)
+       RETURNING ballot_submission_id`,
+      [electionId, voterHash, submissionNumber, oldBallotId]
+    );
+    const newBallotId = newBallot[0].ballot_submission_id;
+
+    for (const r of rankings) {
+      await query(
+        `INSERT INTO ballot_rankings (ballot_submission_id, candidate_id, rank_position)
+         VALUES ($1, $2, $3)`,
+        [newBallotId, r.candidate_id, r.rank_position]
+      );
+    }
+
+    await query(
+      `INSERT INTO ballot_vote (ballot_submission_id, voter_hash, election_id, trait_option_id)
+       SELECT $1, voter_hash, $2, trait_option_id
+       FROM voter_trait_options
+       WHERE voter_hash = $3 AND is_current = TRUE`,
+      [newBallotId, electionId, voterHash]
+    );
+
+    await dbClient.query('COMMIT');
+
+    res.json({ message: 'Ballot submitted successfully.', submissionNumber });
+  } catch (err) {
+    try {
+      const dbClient = getClient();
+      if (dbClient) await dbClient.query('ROLLBACK');
+    } catch (_) {}
+    console.error('[elections/vote]', err);
+    res.status(500).json({ error: 'Server error.' });
   }
-
-  // Ensure no duplicate ranks
-  const ranks = rankings.map(r => r.rank);
-  if (new Set(ranks).size !== ranks.length) {
-    return res.status(400).json({ error: 'Each rank must be assigned to only one candidate.' });
-  }
-
-  // Store the ballot (voter identity is the hash only — anonymous)
-  mem.ballots.push({
-    id: mem.ballots.length + 1,
-    electionId,
-    voterHash,   // R2: only the hash is stored, not the real ID
-    rankings,
-    submittedAt: new Date().toISOString()
-  });
-
-  res.json({ message: 'Ballot submitted successfully.' });
 });
 
 // ─── GET /api/elections/:id/results ──────────────────────────────────────────
-// R6: Returns IRV results + breakdown by voter traits
-router.get('/:id/results', authenticate, (req, res) => {
-  const electionId = parseInt(req.params.id);
+// IRV results + trait breakdown (only if election ended)
+router.get('/:id/results', authenticate, async (req, res) => {
+  try {
+    const electionId = parseInt(req.params.id, 10);
+    if (isNaN(electionId)) return res.status(400).json({ error: 'Invalid election ID.' });
 
-  if (!isDev) {
-    // TODO (your friend): complex JOIN across ballot_submissions, ballot_rankings, voter_trait_responses
-    return res.status(501).json({ error: 'DB not configured.' });
-  }
+    // Fetch election
+    const electionRows = await query(
+      'SELECT election_id, election_name, description, status, ends_at FROM elections WHERE election_id = $1',
+      [electionId]
+    );
+    if (electionRows.length === 0) return res.status(404).json({ error: 'Election not found.' });
 
-  const election = mem.elections.find(e => e.id === electionId);
-  if (!election) return res.status(404).json({ error: 'Election not found.' });
+    const election = electionRows[0];
 
-  const ballots = mem.ballots.filter(b => b.electionId === electionId);
-  const totalVotes = ballots.length;
-
-  // Run IRV tally
-  const irvResult = runIRV(ballots, election.candidates);
-
-  // R6: Trait breakdown - match voter hashes to stored traits
-  const traitBreakdown = {};
-  const traitKeys = ['yearOfStudy', 'faculty', 'campus', 'countryOfOrigin', 'clubsJoined'];
-
-  for (const trait of traitKeys) {
-    traitBreakdown[trait] = {};
-    for (const ballot of ballots) {
-      const voterTraits = mem.traits.find(t => t.voterHash === ballot.voterHash);
-      const traitValue = voterTraits ? voterTraits[trait] : 'Unknown';
-      const firstPref = ballot.rankings.find(r => r.rank === 1);
-      if (!firstPref) continue;
-      const candidateName = election.candidates.find(c => c.id === firstPref.candidateId)?.name || 'Unknown';
-
-      if (!traitBreakdown[trait][traitValue]) {
-        traitBreakdown[trait][traitValue] = {};
-      }
-      traitBreakdown[trait][traitValue][candidateName] =
-        (traitBreakdown[trait][traitValue][candidateName] || 0) + 1;
+    // Check if election has ended
+    if (new Date() < new Date(election.ends_at)) {
+      return res.json({
+        resultsAvailable: false,
+        message: 'Results will be available after the election ends.',
+        endsAt: election.ends_at
+      });
     }
-  }
 
-  res.json({
-    electionId,
-    electionTitle: election.title,
-    totalVotes,
-    winner: irvResult.winner,
-    rounds: irvResult.rounds,
-    finalTally: irvResult.finalTally,
-    traitBreakdown
-  });
+    // Fetch ballots + rankings (current only)
+    const ballotRows = await query(
+      `SELECT bs.ballot_submission_id, bs.voter_hash,
+              br.candidate_id, br.rank_position
+       FROM ballot_submissions bs
+       JOIN ballot_rankings br ON br.ballot_submission_id = bs.ballot_submission_id
+       WHERE bs.election_id = $1 AND bs.is_current = TRUE
+       ORDER BY bs.ballot_submission_id, br.rank_position`,
+      [electionId]
+    );
+
+    // Fetch candidates
+    const candidates = await query(
+      'SELECT candidate_id AS id, display_name AS name, bio FROM election_candidates WHERE election_id = $1',
+      [electionId]
+    );
+
+    // Group ballots by voter
+    const ballotsByVoter = {};
+    for (const row of ballotRows) {
+      if (!ballotsByVoter[row.voter_hash]) {
+        ballotsByVoter[row.voter_hash] = [];
+      }
+      ballotsByVoter[row.voter_hash].push({
+        candidateId: row.candidate_id,
+        rank: row.rank_position
+      });
+    }
+
+    const allBallots = Object.values(ballotsByVoter).map(rankings => ({ rankings }));
+    const totalVotes = allBallots.length;
+
+    // Run IRV
+    let irvResult = null;
+    let firstPref = null;
+    let traitBreakdown = null;
+
+    if (totalVotes > 0) {
+      irvResult = runIRV(allBallots, candidates);
+
+      // First preference breakdown
+      firstPref = await query(
+        `SELECT ec.candidate_id, ec.display_name, COUNT(*)::int AS votes
+         FROM ballot_submissions bs
+         JOIN ballot_rankings br ON br.ballot_submission_id = bs.ballot_submission_id AND br.rank_position = 1
+         JOIN election_candidates ec ON ec.candidate_id = br.candidate_id
+         WHERE bs.election_id = $1 AND bs.is_current = TRUE
+         GROUP BY ec.candidate_id, ec.display_name
+         ORDER BY votes DESC`,
+        [electionId]
+      );
+
+      // Trait breakdown
+      const breakdownRows = await query(
+        `SELECT t.trait_name, tro.option_value, ec.display_name, COUNT(*)::int AS vote_count
+         FROM ballot_submissions bs
+         JOIN ballot_rankings br ON br.ballot_submission_id = bs.ballot_submission_id AND br.rank_position = 1
+         JOIN election_candidates ec ON ec.candidate_id = br.candidate_id
+         JOIN ballot_vote bv ON bv.ballot_submission_id = bs.ballot_submission_id
+         JOIN trait_options tro ON tro.trait_option_id = bv.trait_option_id
+         JOIN traits t ON t.trait_id = tro.trait_id
+         WHERE bs.election_id = $1 AND bs.is_current = TRUE
+         GROUP BY t.trait_name, tro.option_value, ec.display_name
+         ORDER BY t.trait_name, tro.option_value`,
+        [electionId]
+      );
+
+      // Group breakdown by trait
+      traitBreakdown = {};
+      for (const row of breakdownRows) {
+        if (!traitBreakdown[row.trait_name]) {
+          traitBreakdown[row.trait_name] = {};
+        }
+        const optionKey = row.option_value;
+        if (!traitBreakdown[row.trait_name][optionKey]) {
+          traitBreakdown[row.trait_name][optionKey] = {};
+        }
+        traitBreakdown[row.trait_name][optionKey][row.display_name] = row.vote_count;
+      }
+    }
+
+    res.json({
+      electionId,
+      electionTitle: election.election_name,
+      totalVotes,
+      winner: irvResult?.winner || null,
+      rounds: irvResult?.rounds || [],
+      finalTally: firstPref || [],
+      traitBreakdown: traitBreakdown || {}
+    });
+  } catch (err) {
+    console.error('[elections/results]', err);
+    res.status(500).json({ error: 'Server error.' });
+  }
 });
 
 module.exports = router;

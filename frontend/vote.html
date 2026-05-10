@@ -271,9 +271,9 @@ const electionId = new URLSearchParams(window.location.search).get('id') || 1;
     `;
     document.querySelector('.confirm-sub strong').textContent = e.title;
 
-    if (e.hasVoted) {
-      document.querySelector('.submit-btn').disabled = true;
-      document.querySelector('.submit-note').textContent = '✓ You have already voted in this election.';
+    if (e.hasVoted && e.submissionNumber) {
+      document.querySelector('.submit-note').innerHTML =
+        `You have voted ${e.submissionNumber} time${e.submissionNumber > 1 ? 's' : ''} in this election. Submitting again will replace your previous ballot.`;
     }
 
     // Render candidates (already randomised by backend - R13)
@@ -326,7 +326,7 @@ async function submitBallot() {
   const rankings = [];
   selects.forEach(sel => {
     if (sel.value) {
-      rankings.push({ candidateId: parseInt(sel.dataset.candidateId), rank: parseInt(sel.value) });
+      rankings.push({ candidate_id: parseInt(sel.dataset.candidateId), rank_position: parseInt(sel.value) });
     }
   });
 
