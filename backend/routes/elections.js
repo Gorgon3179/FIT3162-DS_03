@@ -5,7 +5,7 @@ const express = require('express');
 const router = express.Router();
 const { query, getClient } = require('../db');
 const { authenticate } = require('../middleware/auth');
-const { runIRV } = require('../utils');
+const { runIRV, fisherYatesShuffle } = require('../utils');
 
 // ─── GET /api/elections ───────────────────────────────────────────────────────
 // Returns all open elections within their voting window
@@ -61,10 +61,10 @@ router.get('/:id', authenticate, async (req, res) => {
     if (electionRows.length === 0) return res.status(404).json({ error: 'Election not found.' });
     const e = electionRows[0];
 
-    const candidates = await query(
-      'SELECT candidate_id AS id, display_name AS name, bio FROM election_candidates WHERE election_id = $1 AND is_active = TRUE ORDER BY RANDOM()',
+    const candidates = fisherYatesShuffle(await query(
+      'SELECT candidate_id AS id, display_name AS name, bio FROM election_candidates WHERE election_id = $1 AND is_active = TRUE',
       [electionId]
-    );
+    ));
 
     const votedRows = await query(
       'SELECT submission_number FROM ballot_submissions WHERE election_id = $1 AND voter_hash = $2 AND is_current = TRUE',

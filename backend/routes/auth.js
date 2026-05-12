@@ -9,6 +9,7 @@ const jwt = require('jsonwebtoken');
 const crypto = require('crypto');
 const { query } = require('../db');
 const { hashVoterId, generateVerificationCode, sendVerificationEmail } = require('../utils');
+const { loginRateLimit, verifyRateLimit } = require('../middleware/ratelimit');
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -21,7 +22,7 @@ function hashCode(code) {
 }
 
 // ─── POST /api/auth/register ──────────────────────────────────────────────────
-router.post('/register', async (req, res) => {
+router.post('/register', loginRateLimit(), async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -66,7 +67,7 @@ router.post('/register', async (req, res) => {
 });
 
 // ─── POST /api/auth/login ─────────────────────────────────────────────────────
-router.post('/login', async (req, res) => {
+router.post('/login', loginRateLimit(), async (req, res) => {
   try {
     const { email, password } = req.body;
 
@@ -126,7 +127,7 @@ router.post('/login', async (req, res) => {
 });
 
 // ─── POST /api/auth/verify ────────────────────────────────────────────────────
-router.post('/verify', async (req, res) => {
+router.post('/verify', verifyRateLimit(), async (req, res) => {
   try {
     const { email, code } = req.body;
     if (!email || !code) {

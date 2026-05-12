@@ -2,6 +2,16 @@
 
 const crypto = require('crypto');
 
+// ─── Fisher-Yates shuffle (unbiased random permutation) ──────────────────────
+function fisherYatesShuffle(arr) {
+  const shuffled = [...arr];
+  for (let i = shuffled.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+  }
+  return shuffled;
+}
+
 // ─── R2: Hash voter ID for anonymity ─────────────────────────────────────────
 // SHA-256 hash of email - irreversible, consistent per voter
 function hashVoterId(email) {
@@ -104,4 +114,4 @@ function runIRV(ballots, candidates) {
   };
 }
 
-module.exports = { hashVoterId, generateVerificationCode, sendVerificationEmail, runIRV };
+module.exports = { hashVoterId, generateVerificationCode, sendVerificationEmail, runIRV, fisherYatesShuffle };
