@@ -33,8 +33,9 @@ async function sendVerificationEmail(email, code) {
     auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
   });
 
+  const sender = process.env.EMAIL_FROM || process.env.EMAIL_USER;
   await transporter.sendMail({
-    from: `"MonashVote" <${process.env.EMAIL_USER}>`,
+    from: `"MonashVote" <${sender}>`,
     to: email,
     subject: 'Your MonashVote verification code',
     html: `
