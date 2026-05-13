@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonashVote - Signing in</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #002a5c; --blue: #006dae; --accent: #00aad2;
+    --light: #f4f7fb; --white: #fff; --text: #1a2233;
+    --muted: #6b7a99; --border: #d6e0f0;
+    --shadow: 0 8px 40px rgba(0,42,92,0.12);
+  }
+  body {
+    font-family: 'DM Sans', sans-serif; background: var(--light);
+    min-height: 100vh; display: flex; align-items: center; justify-content: center;
+    background-image: radial-gradient(ellipse at 20% 80%, rgba(0,109,174,0.12) 0%, transparent 60%),
+                      radial-gradient(ellipse at 80% 10%, rgba(0,170,210,0.10) 0%, transparent 55%);
+  }
+  .card {
+    background: var(--white); border-radius: 20px; padding: 48px;
+    width: 420px; box-shadow: var(--shadow); border: 1px solid var(--border); text-align: center;
+  }
+  .logo-mark {
+    width: 44px; height: 44px; background: var(--navy); border-radius: 10px;
+    display: grid; place-items: center; font-family: 'DM Serif Display', serif;
+    color: white; font-size: 22px; margin: 0 auto 24px;
+  }
+  h1 { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--navy); margin-bottom: 8px; }
+  p { color: var(--muted); font-size: 14px; line-height: 1.6; }
+  .spinner {
+    width: 28px; height: 28px; border: 3px solid rgba(0,109,174,0.15);
+    border-top-color: var(--blue); border-radius: 50%; animation: spin 0.8s linear infinite;
+    margin: 24px auto 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-mark">M</div>
+  <h1>Signing you in</h1>
+  <p id="statusText">Checking your Google account with MonashVote.</p>
+  <div class="spinner" id="spinner"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  async function completeGoogleLogin() {
+    const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+    try {
+      const url = new URL(window.location.href);
+      const hashParams = new URLSearchParams(window.location.hash.slice(1));
+      const oauthError =
+        url.searchParams.get('error_description') ||
+        url.searchParams.get('error') ||
+        hashParams.get('error_description') ||
+        hashParams.get('error');
+      if (oauthError) throw new Error(oauthError);
+
+      const configRes = await fetch('/api/auth/supabase-config');
+      const config = await configRes.json();
+      if (!config.enabled || !window.supabase) {
+        throw new Error('Google login is not configured on this server.');
+      }
+
+      const client = window.supabase.createClient(config.url, config.anonKey, {
+        auth: {
+          flowType: 'implicit',
+          persistSession: true,
+          autoRefreshToken: true,
+          detectSessionInUrl: true
+        }
+      });
+
+      const hashAccessToken = hashParams.get('access_token');
+      const code = url.searchParams.get('code');
+      let session = null;
+
+      if (hashAccessToken) {
+        session = { access_token: hashAccessToken };
+        window.history.replaceState({}, document.title, '/auth-callback.html');
+      }
+
+      if (!session?.access_token && code) {
+        throw new Error('Google login flow changed. Please start Google sign-in again.');
+      }
+
+      if (!session?.access_token) {
+        for (let i = 0; i < 5 && !session?.access_token; i++) {
+          await sleep(200);
+          const { data, error } = await client.auth.getSession();
+          if (error) throw error;
+          session = data.session || null;
+        }
+      }
+
+      if (!session?.access_token) {
+        throw new Error('No Google session was returned.');
+      }
+
+      const res = await fetch('/api/auth/supabase', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ accessToken: session.access_token })
+      });
+      const result = await res.json();
+
+      if (!res.ok) {
+        await client.auth.signOut();
+        throw new Error(result.error || 'Your Google account is not allowed.');
+      }
+
+      window.location.href = result.isNewUser ? 'traits.html' : 'dashboard.html';
+    } catch (err) {
+      const message = err.message || 'Google login failed.';
+      const params = new URLSearchParams({ error: message });
+      window.location.href = `login.html?${params.toString()}`;
+    }
+  }
+
+  completeGoogleLogin();
+</script>
+</body>
+</html>

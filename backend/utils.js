@@ -29,35 +29,55 @@ function generateVerificationCode() {
 
 // ─── Email sender ─────────────────────────────────────────────────────────────
 async function sendVerificationEmail(email, code) {
-  // Dev mode: just print to console
-  if (process.env.DEV_MODE === 'true' || !process.env.EMAIL_USER) {
+  // Dev mode: print to console + devCode returned to frontend
+  if (process.env.DEV_MODE === 'true') {
     console.log(`\n[DEV EMAIL] To: ${email} | Code: ${code}\n`);
     return;
   }
 
-  const nodemailer = require('nodemailer');
-  const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: parseInt(process.env.EMAIL_PORT || '587'),
-    secure: false,
-    auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-  });
+  // Try Supabase Edge Function first (secrets stored in Supabase, not .env)
+  const supabaseUrl = process.env.SUPABASE_URL;
+  const supabaseKey = process.env.SUPABASE_ANON_KEY;
+  if (supabaseUrl && supabaseKey) {
+    try {
+      const res = await fetch(`${supabaseUrl}/functions/v1/send-verification-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${supabaseKey}` },
+        body: JSON.stringify({ email, code })
+      });
+      if (res.ok) return;
+      const err = await res.json();
+      console.error('[EMAIL] Edge Function error:', err);
+    } catch (e) {
+      console.error('[EMAIL] Edge Function failed:', e.message);
+    }
+  }
 
-  const sender = process.env.EMAIL_FROM || process.env.EMAIL_USER;
-  await transporter.sendMail({
-    from: `"MonashVote" <${sender}>`,
-    to: email,
-    subject: 'Your MonashVote verification code',
-    html: `
-      <div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;">
+  // Fallback: direct nodemailer (needs EMAIL_USER/EMAIL_PASS in .env)
+  if (!process.env.EMAIL_USER) {
+    console.log(`\n[EMAIL DEBUG] To: ${email} | Code: ${code} (no email service)\n`);
+    return;
+  }
+
+  try {
+    const nodemailer = require('nodemailer');
+    const transporter = nodemailer.createTransport({
+      host: process.env.EMAIL_HOST, port: parseInt(process.env.EMAIL_PORT || '587'),
+      secure: false, auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+    await transporter.sendMail({
+      from: `"MonashVote" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: email, subject: 'Your MonashVote verification code',
+      html: `<div style="font-family:sans-serif;max-width:480px;margin:auto;padding:32px;">
         <h2 style="color:#002a5c;">MonashVote</h2>
         <p>Your verification code is:</p>
         <div style="font-size:36px;font-weight:bold;letter-spacing:8px;color:#006dae;margin:24px 0;">${code}</div>
-        <p style="color:#666;">This code expires in 10 minutes.</p>
-        <p style="color:#666;font-size:12px;">If you didn't request this, you can safely ignore this email.</p>
-      </div>
-    `
-  });
+        <p style="color:#666;">This code expires in 10 minutes.</p></div>`
+    });
+  } catch (err) {
+    console.error('[EMAIL] Nodemailer failed:', err.message);
+    console.log(`\n[EMAIL FALLBACK] To: ${email} | Code: ${code}\n`);
+  }
 }
 
 // ─── R7: IRV (Instant Runoff Voting) tally algorithm ─────────────────────────

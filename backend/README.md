@@ -51,6 +51,18 @@ Then open **http://localhost:3000** in your browser.
 6. Click an election → vote → ballot submitted to backend
 7. Admin dashboard: log in as `admin@monash.edu` to see stats & activity
 
+## Google login with Supabase Auth
+
+The app can also use Supabase Auth for Google login while keeping the existing MonashVote JWT cookie for voting routes.
+
+Required setup:
+
+1. Enable Google as a provider in Supabase Auth.
+2. Add `http://localhost:3000/auth-callback.html` to Supabase Auth Redirect URLs.
+3. Set `SUPABASE_URL` and `SUPABASE_ANON_KEY` in `backend/.env`.
+
+The backend verifies the Supabase access token, requires a verified Google email, and only accepts `@student.monash.edu` or `@monash.edu`.
+
 ## For your friend (SQL integration)
 
 Every route has a `// TODO (your friend):` comment with the exact SQL needed.
