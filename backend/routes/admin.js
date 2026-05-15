@@ -51,6 +51,23 @@ router.get('/activity', authenticate, requireAdmin, async (req, res) => {
   }
 });
 
+// ─── GET /api/admin/elections ────────────────────────────────────────────────
+// List all elections (all statuses) for admin management
+router.get('/elections', authenticate, requireAdmin, async (req, res) => {
+  try {
+    const rows = await query(
+      `SELECT election_id AS id, election_name AS title, description, status,
+              starts_at AS "startsAt", ends_at AS "closesAt", election_type AS "electionType"
+       FROM elections
+       ORDER BY ends_at DESC`
+    );
+    res.json({ elections: rows });
+  } catch (err) {
+    console.error('[admin/list-elections]', err);
+    res.status(500).json({ error: 'Server error.' });
+  }
+});
+
 // ─── POST /api/admin/elections ────────────────────────────────────────────────
 router.post('/elections', authenticate, requireAdmin, async (req, res) => {
   try {
