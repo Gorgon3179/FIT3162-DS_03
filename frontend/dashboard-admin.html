@@ -92,6 +92,83 @@
   .status-pill { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; font-weight: 600; padding: 3px 9px; border-radius: 8px; }
   .status-pill.voted { background: rgba(34,197,94,0.12); color: #15803d; }
   .status-pill.pending { background: rgba(245,158,11,0.12); color: #b45309; }
+
+  /* ── Modals ── */
+  .modal-backdrop {
+    display: none; position: fixed; inset: 0; background: rgba(0,10,30,0.55);
+    backdrop-filter: blur(3px); z-index: 500; align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .modal-backdrop.open { display: flex; }
+  .modal {
+    background: white; border-radius: 20px; width: 100%; max-width: 580px;
+    box-shadow: 0 20px 60px rgba(0,42,92,0.22); animation: slideUp 0.22s ease;
+    max-height: 90vh; overflow-y: auto;
+  }
+  @keyframes slideUp { from { opacity:0; transform:translateY(18px); } to { opacity:1; transform:translateY(0); } }
+  .modal-head {
+    padding: 24px 28px 18px; border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    position: sticky; top: 0; background: white; z-index: 1;
+  }
+  .modal-title { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--navy); }
+  .modal-close {
+    width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border);
+    background: none; cursor: pointer; display: grid; place-items: center;
+    color: var(--muted); font-size: 18px; transition: background 0.15s;
+  }
+  .modal-close:hover { background: var(--light); }
+  .modal-body { padding: 22px 28px 4px; }
+  .form-row { margin-bottom: 16px; }
+  .form-row label { display: block; font-size: 12px; font-weight: 600; color: var(--muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; }
+  .form-row input, .form-row textarea, .form-row select {
+    width: 100%; padding: 10px 13px; border: 1.5px solid var(--border); border-radius: 10px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; color: var(--text);
+    background: white; transition: border-color 0.15s; outline: none;
+  }
+  .form-row input:focus, .form-row textarea:focus, .form-row select:focus { border-color: var(--blue); }
+  .form-row textarea { resize: vertical; min-height: 70px; }
+  .form-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .candidate-row {
+    display: flex; gap: 8px; align-items: flex-start; padding: 12px;
+    border: 1.5px solid var(--border); border-radius: 10px; margin-bottom: 8px; background: var(--light);
+  }
+  .candidate-row .fields { flex: 1; display: flex; flex-direction: column; gap: 6px; }
+  .candidate-row input { padding: 8px 11px; font-size: 13px; }
+  .remove-btn {
+    width: 30px; height: 30px; border-radius: 7px; border: 1px solid #fecaca;
+    background: #fff5f5; color: #ef4444; cursor: pointer; font-size: 15px;
+    display: grid; place-items: center; flex-shrink: 0; margin-top: 2px; transition: background 0.15s;
+  }
+  .remove-btn:hover { background: #fee2e2; }
+  .add-candidate-btn {
+    width: 100%; padding: 9px; border: 1.5px dashed var(--border); border-radius: 10px;
+    background: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 13px;
+    color: var(--blue); font-weight: 600; transition: border-color 0.15s, background 0.15s;
+    display: flex; align-items: center; justify-content: center; gap: 6px; margin-bottom: 4px;
+  }
+  .add-candidate-btn:hover { border-color: var(--blue); background: rgba(0,109,174,0.04); }
+  .section-label { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin: 18px 0 10px; }
+  .modal-foot { padding: 16px 28px 24px; display: flex; gap: 10px; justify-content: flex-end; }
+  .cancel-btn {
+    padding: 10px 20px; border: 1.5px solid var(--border); border-radius: 10px;
+    background: none; cursor: pointer; font-family: 'DM Sans', sans-serif; font-size: 14px;
+    font-weight: 600; color: var(--muted); transition: border-color 0.15s;
+  }
+  .cancel-btn:hover { border-color: var(--muted); }
+  .submit-btn {
+    padding: 10px 24px; border: none; border-radius: 10px; background: var(--navy);
+    color: white; font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+    cursor: pointer; transition: background 0.2s; display: flex; align-items: center; gap: 8px;
+  }
+  .submit-btn:hover:not(:disabled) { background: var(--blue); }
+  .submit-btn:disabled { opacity: 0.55; cursor: not-allowed; }
+  .form-msg {
+    margin: 0 28px 16px; padding: 10px 14px; border-radius: 8px; font-size: 13px;
+    font-weight: 500; display: none;
+  }
+  .form-msg.success { background: rgba(34,197,94,0.1); color: #15803d; display: block; }
+  .form-msg.error { background: rgba(239,68,68,0.1); color: #b91c1c; display: block; }
 </style>
 </head>
 <body>
@@ -114,7 +191,7 @@
       <h1 class="greeting">Welcome back, <span>admin</span></h1>
       <p class="sub">Manage elections, review results, and monitor voter activity.</p>
     </div>
-    <button class="primary-btn" onclick="alert('Create Election modal would appear here')">+ Initiate Election</button>
+    <button class="primary-btn" onclick="openInitiateModal()">+ Initiate Election</button>
   </div>
 
   <div class="stats">
@@ -154,14 +231,14 @@
 
     <div style="display:flex; flex-direction:column; gap:20px;">
       <div class="action-grid">
-        <div class="action-card" onclick="alert('Initiate Election modal')">
+        <div class="action-card" onclick="openInitiateModal()">
           <div class="action-icon amber">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="#f59e0b" stroke-width="1.5"/><path d="M10 7v6M7 10h6" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/></svg>
           </div>
           <div class="action-label">Initiate Election</div>
           <div class="action-desc">Create a new club election with candidates and settings</div>
         </div>
-        <div class="action-card" onclick="alert('Update Election modal')">
+        <div class="action-card" onclick="openUpdateModal()">
           <div class="action-icon blue">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 12l-1 4 4-1 8-8-3-3-8 8z" stroke="#006dae" stroke-width="1.5" stroke-linejoin="round"/></svg>
           </div>
@@ -200,7 +277,99 @@
   </div>
 </div>
 
+<!-- ═══════════════════════ INITIATE ELECTION MODAL ═══════════════════════ -->
+<div class="modal-backdrop" id="initiateBackdrop" onclick="handleBackdropClick(event,'initiateBackdrop')">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="initTitle">
+    <div class="modal-head">
+      <span class="modal-title" id="initTitle">Initiate Election</span>
+      <button class="modal-close" onclick="closeModal('initiateBackdrop')" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label for="initTitle_">Election Title *</label>
+        <input id="initTitle_" type="text" placeholder="e.g. Student Council President 2025" maxlength="120">
+      </div>
+      <div class="form-row">
+        <label for="initDesc">Description</label>
+        <textarea id="initDesc" placeholder="Brief description of this election…"></textarea>
+      </div>
+      <div class="form-2col">
+        <div class="form-row">
+          <label for="initStarts">Starts At *</label>
+          <input id="initStarts" type="datetime-local">
+        </div>
+        <div class="form-row">
+          <label for="initEnds">Closes At *</label>
+          <input id="initEnds" type="datetime-local">
+        </div>
+      </div>
+
+      <div class="section-label">Candidates <span style="color:var(--blue);font-size:11px;text-transform:none;letter-spacing:0;">(minimum 2)</span></div>
+      <div id="candidateList"></div>
+      <button class="add-candidate-btn" onclick="addCandidate()">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Add Candidate
+      </button>
+    </div>
+    <div class="form-msg" id="initMsg"></div>
+    <div class="modal-foot">
+      <button class="cancel-btn" onclick="closeModal('initiateBackdrop')">Cancel</button>
+      <button class="submit-btn" id="initSubmitBtn" onclick="submitInitiate()">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M7 2v10M2 7h10" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Create Election
+      </button>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════ UPDATE ELECTION MODAL ════════════════════════ -->
+<div class="modal-backdrop" id="updateBackdrop" onclick="handleBackdropClick(event,'updateBackdrop')">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="updTitle">
+    <div class="modal-head">
+      <span class="modal-title" id="updTitle">Update Election</span>
+      <button class="modal-close" onclick="closeModal('updateBackdrop')" aria-label="Close">×</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label for="updSelect">Select Election *</label>
+        <select id="updSelect" onchange="onElectionSelected()">
+          <option value="">— Loading elections… —</option>
+        </select>
+      </div>
+      <div id="updFields" style="display:none">
+        <div class="form-row">
+          <label for="updElTitle">Title</label>
+          <input id="updElTitle" type="text" placeholder="Election title" maxlength="120">
+        </div>
+        <div class="form-row">
+          <label for="updElDesc">Description</label>
+          <textarea id="updElDesc" placeholder="Description…"></textarea>
+        </div>
+        <div class="form-2col">
+          <div class="form-row">
+            <label for="updEnds">Closes At</label>
+            <input id="updEnds" type="datetime-local">
+          </div>
+          <div class="form-row">
+            <label for="updStatus">Status</label>
+            <select id="updStatus">
+              <option value="open">Open</option>
+              <option value="closed">Closed</option>
+            </select>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="form-msg" id="updMsg"></div>
+    <div class="modal-foot">
+      <button class="cancel-btn" onclick="closeModal('updateBackdrop')">Cancel</button>
+      <button class="submit-btn" id="updSubmitBtn" onclick="submitUpdate()" disabled>Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <script>
+  /* ── existing helpers ───────────────────────────────────────────── */
   async function logout() {
     await fetch('/api/auth/logout', { method: 'POST', credentials: 'include' });
     Object.keys(localStorage)
@@ -218,24 +387,242 @@
     return `${hrs} hour${hrs !== 1 ? 's' : ''} ago`;
   }
 
+  /* ── modal helpers ──────────────────────────────────────────────── */
+  function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
+  function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
+  function handleBackdropClick(e, id) { if (e.target === document.getElementById(id)) closeModal(id); }
+
+  function showMsg(id, type, text) {
+    const el = document.getElementById(id);
+    el.className = 'form-msg ' + type;
+    el.textContent = text;
+  }
+  function hideMsg(id) {
+    const el = document.getElementById(id);
+    el.className = 'form-msg';
+    el.textContent = '';
+  }
+
+  /* ── INITIATE ELECTION ──────────────────────────────────────────── */
+  let candidateCount = 0;
+
+  function addCandidate(name = '', bio = '') {
+    candidateCount++;
+    const id = candidateCount;
+    const list = document.getElementById('candidateList');
+    const div = document.createElement('div');
+    div.className = 'candidate-row';
+    div.id = `cand-${id}`;
+    div.innerHTML = `
+      <div class="fields">
+        <input type="text" placeholder="Candidate name *" value="${name}" data-cand-name="${id}">
+        <input type="text" placeholder="Bio (optional)" value="${bio}" data-cand-bio="${id}">
+      </div>
+      <button class="remove-btn" onclick="removeCandidate(${id})" title="Remove">×</button>
+    `;
+    list.appendChild(div);
+    updateRemoveBtns();
+  }
+
+  function removeCandidate(id) {
+    document.getElementById(`cand-${id}`)?.remove();
+    updateRemoveBtns();
+  }
+
+  function updateRemoveBtns() {
+    const rows = document.querySelectorAll('#candidateList .candidate-row');
+    rows.forEach(r => {
+      const btn = r.querySelector('.remove-btn');
+      btn.disabled = rows.length <= 2;
+      btn.style.opacity = rows.length <= 2 ? '0.35' : '1';
+    });
+  }
+
+  function openInitiateModal() {
+    // Reset form
+    document.getElementById('initTitle_').value = '';
+    document.getElementById('initDesc').value = '';
+    document.getElementById('initStarts').value = '';
+    document.getElementById('initEnds').value = '';
+    document.getElementById('candidateList').innerHTML = '';
+    candidateCount = 0;
+    hideMsg('initMsg');
+    document.getElementById('initSubmitBtn').disabled = false;
+
+    // Seed 2 empty candidates
+    addCandidate(); addCandidate();
+
+    // Default start to now, end to +7 days
+    const now = new Date(); now.setSeconds(0, 0);
+    const end = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+    document.getElementById('initStarts').value = toLocalISO(now);
+    document.getElementById('initEnds').value   = toLocalISO(end);
+
+    openModal('initiateBackdrop');
+  }
+
+  function toLocalISO(d) {
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  async function submitInitiate() {
+    hideMsg('initMsg');
+    const title   = document.getElementById('initTitle_').value.trim();
+    const desc    = document.getElementById('initDesc').value.trim();
+    const starts  = document.getElementById('initStarts').value;
+    const ends    = document.getElementById('initEnds').value;
+
+    const nameInputs = document.querySelectorAll('#candidateList [data-cand-name]');
+    const bioInputs  = document.querySelectorAll('#candidateList [data-cand-bio]');
+    const candidates = [];
+    nameInputs.forEach((inp, i) => {
+      const name = inp.value.trim();
+      const bio  = bioInputs[i]?.value.trim() || '';
+      if (name) candidates.push({ name, bio });
+    });
+
+    if (!title)                     return showMsg('initMsg', 'error', 'Election title is required.');
+    if (!starts || !ends)           return showMsg('initMsg', 'error', 'Start and close dates are required.');
+    if (new Date(ends) <= new Date(starts)) return showMsg('initMsg', 'error', 'Close date must be after start date.');
+    if (candidates.length < 2)     return showMsg('initMsg', 'error', 'Please add at least 2 named candidates.');
+
+    const btn = document.getElementById('initSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Creating…';
+
+    try {
+      const res = await fetch('/api/admin/elections', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title, description: desc, startsAt: new Date(starts).toISOString(), closesAt: new Date(ends).toISOString(), candidates })
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showMsg('initMsg', 'error', data.error || 'Failed to create election.');
+        btn.disabled = false;
+        btn.textContent = 'Create Election';
+      } else {
+        showMsg('initMsg', 'success', `Election created successfully! (ID: ${data.electionId})`);
+        btn.textContent = '✓ Created';
+        setTimeout(() => { closeModal('initiateBackdrop'); location.reload(); }, 1600);
+      }
+    } catch {
+      showMsg('initMsg', 'error', 'Network error. Please try again.');
+      btn.disabled = false;
+      btn.textContent = 'Create Election';
+    }
+  }
+
+  /* ── UPDATE ELECTION ────────────────────────────────────────────── */
+  let allElections = [];
+
+  async function openUpdateModal() {
+    hideMsg('updMsg');
+    document.getElementById('updFields').style.display = 'none';
+    document.getElementById('updSubmitBtn').disabled = true;
+    const sel = document.getElementById('updSelect');
+    sel.innerHTML = '<option value="">— Loading… —</option>';
+    openModal('updateBackdrop');
+
+    try {
+      const res = await fetch('/api/admin/elections', { credentials: 'include' });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      allElections = data.elections || [];
+      sel.innerHTML = '<option value="">— Select an election —</option>' +
+        allElections.map(e => `<option value="${e.id}">${e.title} (${e.status})</option>`).join('');
+    } catch {
+      sel.innerHTML = '<option value="">— Failed to load elections —</option>';
+      showMsg('updMsg', 'error', 'Could not load elections. Make sure the admin elections API is available.');
+    }
+  }
+
+  function onElectionSelected() {
+    const id = document.getElementById('updSelect').value;
+    hideMsg('updMsg');
+    if (!id) {
+      document.getElementById('updFields').style.display = 'none';
+      document.getElementById('updSubmitBtn').disabled = true;
+      return;
+    }
+    const el = allElections.find(e => String(e.id) === id);
+    if (!el) return;
+
+    document.getElementById('updElTitle').value = el.title || '';
+    document.getElementById('updElDesc').value  = el.description || '';
+    document.getElementById('updStatus').value  = el.status || 'open';
+
+    // Format closes_at for datetime-local
+    if (el.closesAt) {
+      const d = new Date(el.closesAt);
+      document.getElementById('updEnds').value = toLocalISO(d);
+    } else {
+      document.getElementById('updEnds').value = '';
+    }
+
+    document.getElementById('updFields').style.display = 'block';
+    document.getElementById('updSubmitBtn').disabled = false;
+  }
+
+  async function submitUpdate() {
+    hideMsg('updMsg');
+    const id     = document.getElementById('updSelect').value;
+    const title  = document.getElementById('updElTitle').value.trim();
+    const desc   = document.getElementById('updElDesc').value.trim();
+    const ends   = document.getElementById('updEnds').value;
+    const status = document.getElementById('updStatus').value;
+
+    if (!id)    return showMsg('updMsg', 'error', 'Please select an election.');
+    if (!title) return showMsg('updMsg', 'error', 'Title cannot be empty.');
+
+    const body = { title, description: desc, status };
+    if (ends) body.ends_at = new Date(ends).toISOString();
+
+    const btn = document.getElementById('updSubmitBtn');
+    btn.disabled = true;
+    btn.textContent = 'Saving…';
+
+    try {
+      const res = await fetch(`/api/admin/elections/${id}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        showMsg('updMsg', 'error', data.error || 'Failed to update election.');
+        btn.disabled = false;
+        btn.textContent = 'Save Changes';
+      } else {
+        showMsg('updMsg', 'success', 'Election updated successfully!');
+        btn.textContent = '✓ Saved';
+        setTimeout(() => { closeModal('updateBackdrop'); location.reload(); }, 1600);
+      }
+    } catch {
+      showMsg('updMsg', 'error', 'Network error. Please try again.');
+      btn.disabled = false;
+      btn.textContent = 'Save Changes';
+    }
+  }
+
+  /* ── Stats & Activity load ──────────────────────────────────────── */
   (async () => {
-    // Load stats
     try {
       const res = await fetch('/api/admin/stats', { credentials: 'include' });
-      if (res.status === 403) {
-        document.querySelector('.greeting span').textContent = '(not admin)';
-      }
+      if (res.status === 403) document.querySelector('.greeting span').textContent = '(not admin)';
       if (res.ok) {
         const d = await res.json();
-        document.getElementById('statActive').textContent = d.activeElections;
-        document.getElementById('statVoters').textContent = d.totalVoters;
-        document.getElementById('statVotes').textContent = d.totalVotes;
+        document.getElementById('statActive').textContent  = d.activeElections;
+        document.getElementById('statVoters').textContent  = d.totalVoters;
+        document.getElementById('statVotes').textContent   = d.totalVotes;
         document.getElementById('statClosing').textContent = d.closingSoon;
         document.getElementById('statClosingSub').textContent = d.closingSoon > 0 ? 'Within 3 days' : 'None urgent';
       }
     } catch {}
 
-    // Load activity
     try {
       const res = await fetch('/api/admin/activity', { credentials: 'include' });
       if (res.ok) {
