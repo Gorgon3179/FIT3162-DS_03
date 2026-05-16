@@ -8,10 +8,16 @@ const { authenticate } = require('../middleware/auth');
 const { runIRV, fisherYatesShuffle } = require('../utils');
 
 // ─── GET /api/elections ───────────────────────────────────────────────────────
-// Returns all open elections within their voting window
+// Returns active elections for voting by default.
+// If ?includeEnded=true is passed, also returns ended open elections so the results page can show them.
 router.get('/', authenticate, async (req, res) => {
   try {
     const { voterHash } = req.user;
+    const includeEnded = req.query.includeEnded === 'true';
+
+    const timeFilter = includeEnded
+      ? `e.starts_at <= NOW()`
+      : `NOW() BETWEEN e.starts_at AND e.ends_at`;
 
     const elections = await query(`
       SELECT
@@ -35,7 +41,7 @@ router.get('/', authenticate, async (req, res) => {
            AND bs.is_current = TRUE)::int AS "submissionNumber"
       FROM elections e
       WHERE e.status = 'open'
-        AND NOW() BETWEEN e.starts_at AND e.ends_at
+        AND ${timeFilter}
       ORDER BY e.ends_at
     `, [voterHash]);
 
@@ -212,8 +218,11 @@ router.get('/:id/results', authenticate, async (req, res) => {
 
     const election = electionRows[0];
 
-    // Check if election has ended
-    if (new Date() < new Date(election.ends_at)) {
+    // Check if election has ended — admins can pass ?preview=true to see live tallies
+    const isPreview = req.query.preview === 'true';
+    const isEnded = new Date() >= new Date(election.ends_at);
+
+    if (!isEnded && !isPreview) {
       return res.json({
         resultsAvailable: false,
         message: 'Results will be available after the election ends.',
@@ -306,6 +315,8 @@ router.get('/:id/results', authenticate, async (req, res) => {
       electionId,
       electionTitle: election.election_name,
       totalVotes,
+      isPreview: isPreview && !isEnded,
+      resultsAvailable: true,
       winner: irvResult?.winner || null,
       rounds: irvResult?.rounds || [],
       finalTally: firstPref || [],
