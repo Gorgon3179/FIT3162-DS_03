@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MonashVote – Analytics</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --navy: #002a5c; --blue: #006dae; --accent: #00aad2;
+    --light: #f4f7fb; --white: #fff; --text: #1a2233;
+    --muted: #6b7a99; --border: #d6e0f0; --shadow: 0 4px 24px rgba(0,42,92,0.09);
+    --amber: #f59e0b; --red: #ef4444; --green: #22c55e;
+  }
+  body { font-family: 'DM Sans', sans-serif; background: var(--light); min-height: 100vh; }
+
+  nav { background: var(--navy); padding: 0 40px; height: 60px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 200; }
+  .nav-logo { display: flex; align-items: center; gap: 10px; }
+  .nav-logo-mark { width: 32px; height: 32px; background: white; border-radius: 7px; display: grid; place-items: center; font-family: 'DM Serif Display', serif; color: var(--navy); font-size: 16px; }
+  .nav-logo-text { color: white; font-size: 15px; font-weight: 600; }
+  .admin-chip { background: var(--amber); color: #7c3000; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; letter-spacing: 0.3px; margin-left: 6px; }
+  .analytics-chip { background: var(--accent); color: white; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; letter-spacing: 0.3px; margin-left: 4px; }
+  .nav-right { display: flex; align-items: center; gap: 20px; }
+  .nav-link { color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; }
+  .nav-link:hover { color: white; }
+
+  .main { max-width: 1200px; margin: 0 auto; padding: 40px; }
+  .page-header { margin-bottom: 32px; }
+  .greeting { font-family: 'DM Serif Display', serif; font-size: 28px; color: var(--navy); }
+  .greeting span { color: var(--accent); }
+  .sub { font-size: 14px; color: var(--muted); margin-top: 4px; }
+
+  /* 6 stat cards */
+  .stats { display: grid; grid-template-columns: repeat(6, 1fr); gap: 14px; margin-bottom: 32px; }
+  .stat-card { background: white; border-radius: 14px; border: 1px solid var(--border); padding: 18px; box-shadow: var(--shadow); }
+  .stat-label { font-size: 11px; color: var(--muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px; }
+  .stat-val { font-family: 'DM Serif Display', serif; font-size: 26px; color: var(--navy); }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 4px; font-weight: 500; }
+  .stat-sub.green { color: #16a34a; }
+  .stat-sub.amber { color: #b45309; }
+  .stat-sub.blue { color: var(--blue); }
+
+  .section { margin-bottom: 32px; }
+  .section-title { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--navy); margin-bottom: 4px; }
+  .section-sub { font-size: 13px; color: var(--muted); margin-bottom: 18px; }
+
+  .panel { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); overflow: hidden; }
+
+  /* Trait */
+  .category-tabs { display: flex; flex-wrap: wrap; gap: 8px; padding: 16px 20px; border-bottom: 1px solid var(--border); background: var(--light); }
+  .cat-tab { padding: 7px 16px; border-radius: 8px; font-size: 12px; font-weight: 600; cursor: pointer; border: 1.5px solid var(--border); background: white; color: var(--muted); transition: all 0.15s; white-space: nowrap; }
+  .cat-tab.active { background: var(--navy); color: white; border-color: var(--navy); }
+  .cat-tab:hover:not(.active) { border-color: var(--blue); color: var(--blue); }
+  .trait-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; padding: 24px; }
+  .trait-card { border: 1px solid var(--border); border-radius: 12px; padding: 18px 18px 14px; background: white; }
+  .trait-card-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 14px; display: flex; align-items: center; justify-content: space-between; }
+  .trait-chart-wrap { position: relative; height: 160px; display: flex; align-items: center; justify-content: center; }
+  .donut-center { position: absolute; text-align: center; pointer-events: none; }
+  .donut-center-val { font-family: 'DM Serif Display', serif; font-size: 20px; color: var(--navy); line-height: 1; }
+  .donut-center-label { font-size: 10px; color: var(--muted); margin-top: 2px; }
+  .trait-legend { margin-top: 10px; display: flex; flex-direction: column; gap: 5px; }
+  .legend-row { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--text); }
+  .legend-dot { width: 9px; height: 9px; border-radius: 3px; flex-shrink: 0; margin-right: 7px; }
+  .legend-left { display: flex; align-items: center; flex: 1; min-width: 0; }
+  .legend-label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .legend-count { font-weight: 600; color: var(--navy); margin-left: 8px; flex-shrink: 0; }
+
+  /* DS grid */
+  .ds-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-bottom: 16px; flex-wrap: wrap; }
+  .ds-select { min-width: 240px; padding: 9px 12px; border-radius: 9px; border: 1.5px solid var(--border); color: var(--text); background: white; font-family: 'DM Sans', sans-serif; font-weight: 600; font-size: 13px; }
+  .ds-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+  .ds-card { background: white; border: 1px solid var(--border); border-radius: 16px; box-shadow: var(--shadow); padding: 22px; overflow: hidden; }
+  .ds-card.wide { grid-column: 1 / -1; }
+  .ds-card h3 { font-size: 17px; color: var(--navy); margin-bottom: 5px; font-weight: 700; }
+  .ds-card p { font-size: 13px; color: var(--muted); margin-bottom: 16px; }
+  .ds-chart-wrap { position: relative; height: 300px; }
+  .ds-chart-wrap.short { height: 200px; }
+  .ds-chart-wrap.tall { height: 340px; }
+  .scroll-chart { overflow-x: auto; padding-bottom: 8px; }
+  .scroll-chart canvas { min-width: 900px; }
+  .heatmap-wrap { overflow: auto; border: 1px solid var(--border); border-radius: 12px; background: white; max-height: 400px; }
+  .heatmap-table { border-collapse: collapse; width: 100%; min-width: 600px; font-size: 12px; }
+  .heatmap-table th, .heatmap-table td { padding: 8px 10px; border-bottom: 1px solid #edf2f7; text-align: center; white-space: nowrap; }
+  .heatmap-table th { position: sticky; top: 0; background: #f8fbff; color: var(--navy); z-index: 1; font-weight: 700; }
+  .heatmap-table th:first-child, .heatmap-table td:first-child { text-align: left; position: sticky; left: 0; background: #fff; z-index: 2; max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+  .heatmap-table th:first-child { background: #f8fbff; z-index: 3; }
+  .heat-cell { font-weight: 700; border-radius: 6px; }
+
+  .loading { display: flex; align-items: center; justify-content: center; gap: 8px; padding: 48px 20px; color: var(--muted); font-size: 14px; }
+  .spinner { width: 18px; height: 18px; border: 2px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin 0.7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .empty-small { padding: 32px; color: var(--muted); text-align: center; font-size: 13px; }
+  .error-msg { color: var(--red); background: rgba(239,68,68,0.07); border-radius: 10px; padding: 14px 18px; font-size: 13px; margin: 16px 24px; }
+
+  @media (max-width: 1100px) { .stats { grid-template-columns: repeat(3, 1fr); } }
+  @media (max-width: 900px) { .stats { grid-template-columns: repeat(2, 1fr); } .ds-grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<nav>
+  <div class="nav-logo">
+    <div class="nav-logo-mark">M</div>
+    <span class="nav-logo-text">MonashVote</span>
+    <span class="admin-chip">ADMIN</span>
+    <span class="analytics-chip">Analytics</span>
+  </div>
+  <div class="nav-right">
+    <a class="nav-link" href="dashboard-admin.html">← Dashboard</a>
+    <a class="nav-link" href="results.html">Results</a>
+    <a class="nav-link" href="#" onclick="logout()">Logout</a>
+  </div>
+</nav>
+
+<div class="main">
+  <div class="page-header">
+    <h1 class="greeting">Voter <span>Analytics</span></h1>
+    <p class="sub">Trait distributions, participation trends, and vote change activity.</p>
+  </div>
+
+  <!-- 6 stat cards (was 4 — added Re-submissions + Trait Update Rate from removed panels) -->
+  <div class="stats">
+    <div class="stat-card">
+      <div class="stat-label">Voters with Traits</div>
+      <div class="stat-val" id="statTraitVoters">…</div>
+      <div class="stat-sub blue" id="statTraitVotersSub"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Total Ballots</div>
+      <div class="stat-val" id="statTotalVotes">…</div>
+      <div class="stat-sub green" id="statTotalVotesSub"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Re-submissions</div>
+      <div class="stat-val" id="statResubmissions">…</div>
+      <div class="stat-sub amber" id="statResubmissionsSub"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Changed Their Vote</div>
+      <div class="stat-val" id="statChangedVoters">…</div>
+      <div class="stat-sub amber" id="statChangedVotersSub"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Have Traits Set</div>
+      <div class="stat-val" id="statHaveTraits">…</div>
+      <div class="stat-sub" id="statHaveTraitsSub"></div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Trait Update Rate</div>
+      <div class="stat-val" id="statTraitUpdateRate">…</div>
+      <div class="stat-sub" id="statTraitUpdateRateSub"></div>
+    </div>
+  </div>
+
+  <!-- Trait Breakdown -->
+  <div class="section">
+    <div class="section-title">Trait Breakdown by Section</div>
+    <div class="section-sub">Select a category to explore how voters are distributed across each trait.</div>
+    <div class="panel" id="traitPanel">
+      <div class="loading"><div class="spinner"></div> Loading trait data…</div>
+    </div>
+  </div>
+
+  <!-- Data Science Visualisations -->
+  <div class="section">
+    <div class="ds-toolbar">
+      <div>
+        <div class="section-title">Data Science Visualisations</div>
+        <div class="section-sub">Candidate momentum, revote behaviour, ranking depth, and trait relationships.</div>
+      </div>
+      <select id="dsElectionSelect" class="ds-select">
+        <option value="">All elections</option>
+      </select>
+    </div>
+
+    <div class="ds-grid">
+
+      <!-- 1. Daily Activity — MOVED UP, replaces old "Activity Over Time" section entirely -->
+      <div class="ds-card wide">
+        <h3>Daily Activity: New Votes, Changed Votes &amp; Trait Updates</h3>
+        <p>Whether voter activity comes from new ballots, re-submissions, or trait data updates. Combines what was previously split across two separate panels.</p>
+        <div class="ds-chart-wrap"><canvas id="dsDailyActivity"></canvas></div>
+      </div>
+
+      <!-- 2. Voting Momentum — renamed from "Zoomable Stacked Voting Momentum" -->
+      <div class="ds-card wide">
+        <h3>Voting Momentum Over Time</h3>
+        <p>Cumulative first-preference submissions per candidate. Scroll horizontally if there are many days of data.</p>
+        <div class="scroll-chart"><div class="ds-chart-wrap tall"><canvas id="dsStackedMomentum"></canvas></div></div>
+      </div>
+
+      <!-- 3 & 4. Support + Depth side by side -->
+      <div class="ds-card">
+        <h3>Candidate Support Over Time</h3>
+        <p>Daily first-preference share (%) per candidate — shows who is gaining or losing momentum.</p>
+        <div class="ds-chart-wrap"><canvas id="dsCandidateSupport"></canvas></div>
+      </div>
+
+      <div class="ds-card">
+        <h3>Ranking Depth Distribution</h3>
+        <p>How many candidates each voter ranked — a measure of voter engagement and ballot completeness.</p>
+        <div class="ds-chart-wrap"><canvas id="dsRankingDepth"></canvas></div>
+      </div>
+
+      <!-- 5. Participation Rate — NEW -->
+      <div class="ds-card wide">
+        <h3>Voter Participation Rate by Election</h3>
+        <p>Ballots cast vs total registered voters per election. Hover for the participation percentage.</p>
+        <div class="ds-chart-wrap short"><canvas id="dsParticipation"></canvas></div>
+      </div>
+
+      <!-- 6. Revote Heatmap -->
+      <div class="ds-card">
+        <h3>Revote Transition Heatmap</h3>
+        <p>Which candidates voters switched from (columns) and to (rows) when they changed their ballot.</p>
+        <div id="dsRevoteHeatmap" class="heatmap-wrap"></div>
+      </div>
+
+      <!-- 7. Trait → Candidate -->
+      <div class="ds-card">
+        <h3>Trait → Candidate Heatmap</h3>
+        <p>Which trait options are most associated with each first-preference candidate (% of that trait group).</p>
+        <div id="dsTraitCandidateHeatmap" class="heatmap-wrap"></div>
+      </div>
+
+      <!-- 8. Association Matrix — wide -->
+      <div class="ds-card wide">
+        <h3>Candidate × Trait Association Matrix</h3>
+        <p>Blue = trait is over-represented for this candidate vs overall share. Red = under-represented. Reveals which voter segments each candidate disproportionately attracts.</p>
+        <div id="dsCorrelationMatrix" class="heatmap-wrap"></div>
+      </div>
+
+      <!-- REMOVED: "Vote Change Direction Over Time" — redundant with Revote Heatmap above
+           and rendered as a single giant navy block with low data volumes -->
+
+    </div>
+  </div>
+</div>
+
+<script>
+  const PALETTE = ['#002a5c','#006dae','#00aad2','#7dd3fc','#a5b4fc','#c4b5fd','#f9a8d4','#fde68a','#86efac','#6ee7b7','#fca5a5','#fcd34d'];
+
+  function el(id) { return document.getElementById(id); }
+  async function apiFetch(path) {
+    const res = await fetch(path, { credentials: 'include' });
+    if (!res.ok) throw new Error(`${res.status}`);
+    return res.json();
+  }
+  function logout() {
+    fetch('/api/auth/logout', { method: 'POST', credentials: 'include' }).then(() => { window.location.href = 'login.html'; });
+  }
+  Chart.defaults.font.family = "'DM Sans', sans-serif";
+  Chart.defaults.color = '#6b7a99';
+
+  let traitData = null, activeCategoryId = null;
+  const donutCharts = {}, dsCharts = {};
+
+  (async () => {
+    await Promise.all([loadTraitDistribution(), loadVoteChanges(), loadTraitChanges(), loadDataScienceVisuals()]);
+  })();
+
+  // ── Trait distribution ────────────────────────────────────────────────────────
+  async function loadTraitDistribution() {
+    try {
+      const data = await apiFetch('/api/admin/analytics/trait-distribution');
+      traitData = data;
+      el('statTraitVoters').textContent = data.totalVotersWithTraits.toLocaleString();
+      el('statTraitVotersSub').textContent = `${data.categories.length} trait categories`;
+      renderCategoryTabs(data.categories);
+      if (data.categories.length > 0) { activeCategoryId = data.categories[0].id; renderTraitCards(data.categories[0]); }
+    } catch (err) {
+      el('traitPanel').innerHTML = `<div class="error-msg">Failed to load trait data. (${err.message})</div>`;
+    }
+  }
+
+  function renderCategoryTabs(cats) {
+    el('traitPanel').innerHTML = `
+      <div class="category-tabs">${cats.map(c => `<div class="cat-tab ${c.id===activeCategoryId?'active':''}" onclick="switchCategory(${c.id})">${c.name}</div>`).join('')}</div>
+      <div class="trait-grid" id="traitGrid"></div>`;
+  }
+
+  function switchCategory(catId) {
+    activeCategoryId = catId;
+    document.querySelectorAll('.cat-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.cat-tab').forEach(t => { if (t.textContent === traitData.categories.find(c=>c.id===catId)?.name) t.classList.add('active'); });
+    Object.values(donutCharts).forEach(c => c.destroy()); for (const k in donutCharts) delete donutCharts[k];
+    const cat = traitData.categories.find(c => c.id === catId);
+    if (cat) renderTraitCards(cat);
+  }
+
+  function renderTraitCards(category) {
+    const grid = el('traitGrid'); if (!grid) return;
+    grid.innerHTML = category.traits.map(trait => {
+      const total = trait.options.reduce((s,o) => s+o.count, 0);
+      return `<div class="trait-card">
+        <div class="trait-card-title">${trait.name}${total>0?`<span style="font-size:11px;font-weight:500;color:var(--muted)">${total} voters</span>`:''}</div>
+        <div class="trait-chart-wrap">
+          <canvas id="donut-${trait.id}" width="160" height="160"></canvas>
+          <div class="donut-center"><div class="donut-center-val">${total}</div><div class="donut-center-label">voters</div></div>
+        </div>
+        <div class="trait-legend">${trait.options.map((opt,i) => {
+          const pct = total>0 ? ((opt.count/total)*100).toFixed(1) : '0.0';
+          return `<div class="legend-row"><div class="legend-left"><div class="legend-dot" style="background:${PALETTE[i%PALETTE.length]}"></div><span class="legend-label" title="${opt.value}">${opt.value}</span></div><div style="display:flex;gap:8px;align-items:center;flex-shrink:0;"><span style="font-size:11px;color:var(--muted)">${pct}%</span><span class="legend-count">${opt.count}</span></div></div>`;
+        }).join('')}</div>
+      </div>`;
+    }).join('');
+    requestAnimationFrame(() => {
+      category.traits.forEach(trait => {
+        const canvas = el(`donut-${trait.id}`); if (!canvas) return;
+        const counts = trait.options.map(o => o.count);
+        const allZero = counts.every(c => c===0);
+        donutCharts[trait.id] = new Chart(canvas, {
+          type: 'doughnut',
+          data: { labels: trait.options.map(o=>o.value), datasets: [{ data: allZero?trait.options.map(()=>1):counts, backgroundColor: allZero?trait.options.map(()=>'#e2e8f0'):trait.options.map((_,i)=>PALETTE[i%PALETTE.length]), borderWidth: 2, borderColor: '#fff', hoverOffset: 4 }] },
+          options: { cutout: '65%', responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { enabled: !allZero, callbacks: { label: ctx => { const t=counts.reduce((a,b)=>a+b,0); return ` ${ctx.label}: ${ctx.parsed} (${t>0?((ctx.parsed/t)*100).toFixed(1):0}%)`; } } } }, animation: { duration: 600, easing: 'easeOutQuart' } }
+        });
+      });
+    });
+  }
+
+  // ── Vote changes → stat cards ─────────────────────────────────────────────────
+  async function loadVoteChanges() {
+    try {
+      const { totals } = await apiFetch('/api/admin/analytics/vote-changes');
+      el('statTotalVotes').textContent = (totals.totalNew||0).toLocaleString();
+      el('statTotalVotesSub').textContent = `${totals.totalNew+totals.totalChanged} total submissions`;
+      el('statResubmissions').textContent = (totals.totalChanged||0).toLocaleString();
+      el('statResubmissionsSub').textContent = 'ballot re-submissions';
+      el('statChangedVoters').textContent = (totals.votersWhoChanged||0).toLocaleString();
+      const pct = totals.totalNew>0 ? ((totals.votersWhoChanged/totals.totalNew)*100).toFixed(1) : '0';
+      el('statChangedVotersSub').textContent = `${pct}% of voters`;
+    } catch {}
+  }
+
+  // ── Trait changes → stat cards ────────────────────────────────────────────────
+  async function loadTraitChanges() {
+    try {
+      const { totals } = await apiFetch('/api/admin/analytics/trait-changes');
+      el('statHaveTraits').textContent = (totals.votersWithTraits||0).toLocaleString();
+      el('statHaveTraitsSub').textContent = 'voters with traits set';
+      const rate = totals.votersWithTraits>0 ? ((totals.votersUpdatedTraits/totals.votersWithTraits)*100).toFixed(1) : '0';
+      el('statTraitUpdateRate').textContent = `${rate}%`;
+      el('statTraitUpdateRateSub').textContent = `${totals.votersUpdatedTraits||0} voters re-submitted`;
+    } catch {}
+  }
+
+  // ── Data Science Visualisations ───────────────────────────────────────────────
+  async function loadDataScienceVisuals(electionId = '') {
+    try {
+      const path = electionId ? `/api/admin/analytics/data-science?electionId=${encodeURIComponent(electionId)}` : '/api/admin/analytics/data-science';
+      const d = await apiFetch(path);
+      renderDsSelect(d.elections||[], electionId);
+      renderDailyActivity(d.dailyActivity||[]);
+      renderStackedMomentum(d.stackedMomentum||[]);
+      renderCandidateSupport(d.candidateSupport||[]);
+      renderRankingDepth(d.rankingDepth||[]);
+      renderParticipation(d.elections||[]);
+      renderHeatmap('dsRevoteHeatmap', d.revoteTransitions||[], { rowKey:'new_candidate', colKey:'previous_candidate', valueKey:'switch_count', emptyMessage:'No revote transitions yet — no voter has changed their ballot.' });
+      renderHeatmap('dsTraitCandidateHeatmap', d.traitCandidateHeatmap||[], { rowKey:'trait_option', colKey:'candidate', valueKey:'share_percent', suffix:'%', emptyMessage:'No trait/candidate data yet.' });
+      renderHeatmap('dsCorrelationMatrix', d.candidateTraitAssociation||[], { rowKey:'trait_option', colKey:'candidate', valueKey:'association_score', suffix:'%', diverging:true, emptyMessage:'No association data yet.' });
+    } catch (err) {
+      ['dsRevoteHeatmap','dsTraitCandidateHeatmap','dsCorrelationMatrix'].forEach(id => { const b=el(id); if(b) b.innerHTML=`<div class="empty-small">Unavailable (${err.message})</div>`; });
+    }
+  }
+
+  function renderDsSelect(elections, selectedId) {
+    const s = el('dsElectionSelect'); if (!s || s.dataset.ready==='true') return;
+    s.innerHTML = '<option value="">All elections</option>' + elections.map(e=>`<option value="${e.id}" ${String(e.id)===String(selectedId)?'selected':''}>${e.title}</option>`).join('');
+    s.addEventListener('change', () => loadDataScienceVisuals(s.value));
+    s.dataset.ready = 'true';
+  }
+
+  function dc(id) { if (dsCharts[id]) { dsCharts[id].destroy(); delete dsCharts[id]; } }
+  function uv(rows, key) { return [...new Set(rows.map(r=>r[key]).filter(v=>v!=null))]; }
+  function fd(v) { return new Date(v).toLocaleDateString('en-AU', { month:'short', day:'numeric' }); }
+  function wa(hex, a) { const c=hex.replace('#',''); return `rgba(${parseInt(c.slice(0,2),16)},${parseInt(c.slice(2,4),16)},${parseInt(c.slice(4,6),16)},${a})`; }
+
+  // 1. Daily Activity
+  function renderDailyActivity(rows) {
+    dc('dsDailyActivity'); const canvas = el('dsDailyActivity'); if (!canvas) return;
+    if (!rows.length) { canvas.parentElement.innerHTML='<div class="empty-small">No activity data yet.</div>'; return; }
+    dsCharts.dsDailyActivity = new Chart(canvas, {
+      type:'bar',
+      data:{ labels:rows.map(r=>fd(r.day)), datasets:[
+        { label:'New votes',     data:rows.map(r=>Number(r.new_votes||0)),     backgroundColor:'#006dae', borderRadius:4 },
+        { label:'Changed votes', data:rows.map(r=>Number(r.changed_votes||0)), backgroundColor:'#f59e0b', borderRadius:4 },
+        { label:'Trait updates', data:rows.map(r=>Number(r.changed_traits||0)),backgroundColor:'#00aad2', borderRadius:4 }
+      ]},
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom' }, tooltip:{ backgroundColor:'#002a5c', padding:10, cornerRadius:8 } }, scales:{ x:{ grid:{ display:false } }, y:{ beginAtZero:true, ticks:{ precision:0 }, grid:{ color:'#edf2f7' } } } }
+    });
+  }
+
+  // 2. Voting Momentum (renamed)
+  function renderStackedMomentum(rows) {
+    dc('dsStackedMomentum'); const canvas = el('dsStackedMomentum'); if (!canvas) return;
+    if (!rows.length) { canvas.parentElement.innerHTML='<div class="empty-small">No momentum data yet.</div>'; return; }
+    const days = uv(rows,'day'), candidates = uv(rows,'candidate');
+    canvas.style.width = `${Math.max(900, days.length*80)}px`;
+    dsCharts.dsStackedMomentum = new Chart(canvas, {
+      type:'line',
+      data:{ labels:days.map(fd), datasets:candidates.map((c,i)=>({ label:c, data:days.map(d=>{ const f=rows.find(r=>r.day===d&&r.candidate===c); return f?Number(f.votes):0; }), backgroundColor:wa(PALETTE[i%PALETTE.length],0.3), borderColor:PALETTE[i%PALETTE.length], fill:true, tension:0.35, pointRadius:2, pointHoverRadius:5 })) },
+      options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } }, tooltip:{ backgroundColor:'#002a5c', padding:10, cornerRadius:8 } }, scales:{ x:{ stacked:true, grid:{ color:'#edf2f7' } }, y:{ stacked:true, beginAtZero:true, title:{ display:true, text:'First-preference submissions' }, ticks:{ precision:0 }, grid:{ color:'#edf2f7' } } } }
+    });
+  }
+
+  // 3. Candidate Support
+  function renderCandidateSupport(rows) {
+    dc('dsCandidateSupport'); const canvas = el('dsCandidateSupport'); if (!canvas) return;
+    if (!rows.length) { canvas.parentElement.innerHTML='<div class="empty-small">No support data yet.</div>'; return; }
+    const days = uv(rows,'day'), candidates = uv(rows,'candidate');
+    dsCharts.dsCandidateSupport = new Chart(canvas, {
+      type:'line',
+      data:{ labels:days.map(fd), datasets:candidates.map((c,i)=>({ label:c, data:days.map(d=>{ const f=rows.find(r=>r.day===d&&r.candidate===c); return f?Number(f.support_percent):null; }), borderColor:PALETTE[i%PALETTE.length], backgroundColor:PALETTE[i%PALETTE.length], tension:0.35, pointRadius:3, fill:false, spanGaps:true })) },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } }, tooltip:{ backgroundColor:'#002a5c', padding:10, cornerRadius:8 } }, scales:{ y:{ beginAtZero:true, max:100, title:{ display:true, text:'Support %' }, ticks:{ callback:v=>`${v}%` }, grid:{ color:'#edf2f7' } }, x:{ grid:{ color:'#edf2f7' } } } }
+    });
+  }
+
+  // 4. Ranking Depth
+  function renderRankingDepth(rows) {
+    dc('dsRankingDepth'); const canvas = el('dsRankingDepth'); if (!canvas) return;
+    if (!rows.length) { canvas.parentElement.innerHTML='<div class="empty-small">No ranking data yet.</div>'; return; }
+    dsCharts.dsRankingDepth = new Chart(canvas, {
+      type:'bar',
+      data:{ labels:rows.map(r=>String(r.ranking_depth)), datasets:[{ label:'Ballots', data:rows.map(r=>Number(r.ballots)), backgroundColor:rows.map((_,i)=>PALETTE[i%PALETTE.length]), borderRadius:6, borderSkipped:false }] },
+      options:{ responsive:true, maintainAspectRatio:false, plugins:{ legend:{ display:false }, tooltip:{ backgroundColor:'#002a5c', padding:10, cornerRadius:8 } }, scales:{ x:{ title:{ display:true, text:'Candidates ranked' }, grid:{ display:false } }, y:{ beginAtZero:true, title:{ display:true, text:'Ballots' }, ticks:{ precision:0 }, grid:{ color:'#edf2f7' } } } }
+    });
+  }
+
+  // 5. Participation Rate — NEW
+  function renderParticipation(elections) {
+    dc('dsParticipation'); const canvas = el('dsParticipation'); if (!canvas) return;
+    const data = elections.filter(e => (e.totalVoters||0) > 0);
+    if (!data.length) { canvas.parentElement.innerHTML='<div class="empty-small">Participation data unavailable — totalVoters not returned by API.</div>'; return; }
+    dsCharts.dsParticipation = new Chart(canvas, {
+      type:'bar',
+      data:{
+        labels: data.map(e=>e.title),
+        datasets:[
+          { label:'Voted', data:data.map(e=>Number(e.voterCount||0)), backgroundColor:'#006dae', borderRadius:6, borderSkipped:false },
+          { label:'Registered (did not vote)', data:data.map(e=>Math.max(0,Number(e.totalVoters||0)-Number(e.voterCount||0))), backgroundColor:'#d6e0f0', borderRadius:6, borderSkipped:false }
+        ]
+      },
+      options:{
+        indexAxis:'y', responsive:true, maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom' }, tooltip:{ backgroundColor:'#002a5c', padding:10, cornerRadius:8, callbacks:{ afterBody: items => { const e=data[items[0].dataIndex]; const pct=e.totalVoters>0?((e.voterCount/e.totalVoters)*100).toFixed(1):0; return [`Participation: ${pct}%`]; } } } },
+        scales:{ x:{ stacked:true, beginAtZero:true, ticks:{ precision:0 }, grid:{ color:'#edf2f7' } }, y:{ stacked:true, grid:{ display:false } } }
+      }
+    });
+  }
+
+  // 6. Heatmap tables
+  function renderHeatmap(id, rows, cfg) {
+    const c = el(id); if (!c) return;
+    if (!rows.length) { c.innerHTML=`<div class="empty-small">${cfg.emptyMessage||'No data yet.'}</div>`; return; }
+    const rowLabels=uv(rows,cfg.rowKey), colLabels=uv(rows,cfg.colKey);
+    const vals=rows.map(r=>Number(r[cfg.valueKey]||0));
+    const maxAbs=Math.max(1,...vals.map(v=>Math.abs(v))), maxVal=Math.max(1,...vals);
+    function lookup(r,col) { const f=rows.find(x=>x[cfg.rowKey]===r&&x[cfg.colKey]===col); return f?Number(f[cfg.valueKey]||0):0; }
+    function cs(v) {
+      if (cfg.diverging) { const a=Math.min(0.88,Math.abs(v)/maxAbs); return v>=0?`background:rgba(0,109,174,${a});color:${a>0.55?'white':'#0f172a'}`:`background:rgba(239,68,68,${a});color:${a>0.55?'white':'#0f172a'}`; }
+      const a=Math.min(0.88,v/maxVal); return `background:rgba(0,109,174,${a});color:${a>0.55?'white':'#0f172a'}`;
+    }
+    function esc(v) { return String(v??'').replace(/[&<>'"]/g,x=>({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[x])); }
+    c.innerHTML=`<table class="heatmap-table"><thead><tr><th></th>${colLabels.map(col=>`<th>${esc(col)}</th>`).join('')}</tr></thead><tbody>${rowLabels.map(row=>`<tr><td title="${esc(row)}">${esc(row)}</td>${colLabels.map(col=>{ const v=lookup(row,col); const shown=cfg.suffix?`${v.toFixed(cfg.diverging?1:0)}${cfg.suffix}`:v; return `<td class="heat-cell" style="${cs(v)}">${shown}</td>`; }).join('')}</tr>`).join('')}</tbody></table>`;
+  }
+</script>
+</body>
+</html>

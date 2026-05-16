@@ -180,6 +180,7 @@
   </div>
   <div class="nav-right">
     <a class="nav-link" href="dashboard.html">Voter View</a>
+    <a class="nav-link" href="analytics.html">Analytics</a>
     <a class="nav-link" href="#" onclick="logout()">Logout</a>
     <div class="avatar">AD</div>
   </div>
@@ -205,14 +206,31 @@
     <div class="panel">
       <div class="panel-header">
         <span class="panel-title">Active Elections</span>
-        <span class="badge" id="electionBadge">…</span>
+        <span class="badge">2</span>
       </div>
-      <div class="election-list" id="electionList">
-        <div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Loading…</div>
+      <div class="election-list">
+        <div class="election-item active">
+          <div class="el-dot"></div>
+          <div style="flex:1">
+            <div class="el-name">Club 1 Election</div>
+            <div class="el-meta">412 votes · Closes in 2 days</div>
+          </div>
+        </div>
+        <div class="election-item">
+          <div class="el-dot"></div>
+          <div style="flex:1">
+            <div class="el-name">Club 2 Election</div>
+            <div class="el-meta">89 votes · Closes in 4 days</div>
+          </div>
+        </div>
       </div>
       <button class="results-btn" onclick="window.location='results.html'">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10h2V6H2v4zm4 0h2V2H6v8zm4 0h2V7h-2v3z" fill="white"/></svg>
         View Results
+      </button>
+      <button class="results-btn" style="background:var(--navy); margin-top:-8px;" onclick="window.location='analytics.html'">
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 11V7M5 11V3M8 11V5M11 11V2" stroke="white" stroke-width="1.5" stroke-linecap="round"/></svg>
+        Open Analytics
       </button>
     </div>
 
@@ -234,10 +252,20 @@
         </div>
         <div class="action-card" onclick="window.location='results.html'">
           <div class="action-icon green">
-            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 14h3V8H3v6zm5 0h3V4H8v10zm5 0h3v-4h-3v4z" fill="#16a34a"/></svg>
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M3 14h3V8H3v6zm5 0h3V4H8v10zm5 0h3v4h-3v-4z" fill="#16a34a"/></svg>
           </div>
-          <div class="action-label">Vote History</div>
-          <div class="action-desc">Review past elections and download result reports</div>
+          <div class="action-label">Results & Visualisation</div>
+          <div class="action-desc">Review election results, candidate rankings, and final vote breakdowns</div>
+        </div>
+        <div class="action-card" onclick="window.location='analytics.html'">
+          <div class="action-icon blue">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none">
+              <path d="M4 15V9M8 15V5M12 15v-4M16 15V7" stroke="#006dae" stroke-width="1.7" stroke-linecap="round"/>
+              <path d="M3 16h14" stroke="#006dae" stroke-width="1.7" stroke-linecap="round"/>
+            </svg>
+          </div>
+          <div class="action-label">Analytics</div>
+          <div class="action-desc">View voter traits, voting activity, revote behaviour, and data science charts</div>
         </div>
         <div class="action-card" onclick="window.location='traits.html'">
           <div class="action-icon red">
@@ -505,7 +533,7 @@
   /* ── UPDATE ELECTION ────────────────────────────────────────────── */
   let allElections = [];
 
-  async function openUpdateModal(preselectId = null) {
+  async function openUpdateModal() {
     hideMsg('updMsg');
     document.getElementById('updFields').style.display = 'none';
     document.getElementById('updSubmitBtn').disabled = true;
@@ -520,11 +548,6 @@
       allElections = data.elections || [];
       sel.innerHTML = '<option value="">— Select an election —</option>' +
         allElections.map(e => `<option value="${e.id}">${e.title} (${e.status})</option>`).join('');
-      // Pre-select if opened from election list click
-      if (preselectId) {
-        sel.value = String(preselectId);
-        onElectionSelected();
-      }
     } catch {
       sel.innerHTML = '<option value="">— Failed to load elections —</option>';
       showMsg('updMsg', 'error', 'Could not load elections. Make sure the admin elections API is available.');
@@ -600,53 +623,8 @@
     }
   }
 
-  /* ── Stats, Elections & Activity load ──────────────────────────── */
-  function daysUntil(isoStr) {
-    const diff = new Date(isoStr) - Date.now();
-    const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-    if (days < 0)  return 'Closed';
-    if (days === 0) return 'Closes today';
-    return `Closes in ${days} day${days !== 1 ? 's' : ''}`;
-  }
-
-  function renderElectionList(elections) {
-    const list  = document.getElementById('electionList');
-    const badge = document.getElementById('electionBadge');
-    const open  = elections.filter(e => e.status === 'open');
-    badge.textContent = open.length;
-
-    if (open.length === 0) {
-      list.innerHTML = '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">No active elections</div>';
-      return;
-    }
-
-    list.innerHTML = open.map((e, i) => `
-      <div class="election-item${i === 0 ? ' active' : ''}"
-           id="elItem-${e.id}"
-           onclick="selectElection(${e.id})"
-           style="cursor:pointer">
-        <div class="el-dot"></div>
-        <div style="flex:1">
-          <div class="el-name">${e.title}</div>
-          <div class="el-meta">${daysUntil(e.closesAt)}</div>
-        </div>
-        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" style="flex-shrink:0;opacity:0.4">
-          <path d="M3 12l4-4-4-4M7 12l4-4-4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </div>
-    `).join('');
-  }
-
-  function selectElection(id) {
-    // Toggle active highlight
-    document.querySelectorAll('.election-item').forEach(el => el.classList.remove('active'));
-    document.getElementById(`elItem-${id}`)?.classList.add('active');
-    // Open update modal pre-selected on this election
-    openUpdateModal(id);
-  }
-
+  /* ── Stats & Activity load ──────────────────────────────────────── */
   (async () => {
-    // Stats
     try {
       const res = await fetch('/api/admin/stats', { credentials: 'include' });
       if (res.status === 403) document.querySelector('.greeting span').textContent = '(not admin)';
@@ -660,20 +638,6 @@
       }
     } catch {}
 
-    // Election list (reuses the same admin elections endpoint)
-    try {
-      const res = await fetch('/api/admin/elections', { credentials: 'include' });
-      if (res.ok) {
-        const d = await res.json();
-        allElections = d.elections || [];
-        renderElectionList(allElections);
-      }
-    } catch {
-      document.getElementById('electionList').innerHTML =
-        '<div style="padding:16px;text-align:center;color:var(--muted);font-size:13px">Could not load elections</div>';
-    }
-
-    // Activity
     try {
       const res = await fetch('/api/admin/activity', { credentials: 'include' });
       if (res.ok) {
