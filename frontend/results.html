@@ -113,12 +113,13 @@
   let allElections = [];
   let currentElectionId = null;
   let currentTrait = null;
+  let currentResultsData = null;
 
   const COLOR_PALETTE = ['#002a5c','#006dae','#00aad2','#7dd3fc','#a5b4fc','#e2e8f0','#94a3b8','#475569'];
 
   async function loadElections() {
     try {
-      const res = await fetch('/api/elections', { credentials: 'include' });
+      const res = await fetch('/api/elections?includeEnded=true', { credentials: 'include' });
       if (!res.ok) return;
       const data = await res.json();
       allElections = data.elections || [];
@@ -148,10 +149,10 @@
       '<div class="not-available">Loading results…</div>';
 
     try {
-      const res = await fetch(`/api/elections/${id}/results`, { credentials: 'include' });
+      const res = await fetch(`/api/elections/${id}/results?preview=true`, { credentials: 'include' });
       const data = await res.json();
 
-      if (!data.resultsAvailable) {
+      if (!data.resultsAvailable && !data.isPreview) {
         document.getElementById('resultContent').innerHTML =
           `<div class="not-available">
             <strong>${data.message || 'Results not yet available.'}</strong>
@@ -167,8 +168,10 @@
       }
 
       document.getElementById('resultTitle').textContent = data.electionTitle;
-      document.getElementById('resultSub').textContent = `IRV tally complete · ${data.totalVotes} ballots counted`;
+      const previewNote = data.isPreview ? ' · <span style="color:#f59e0b;font-size:12px;font-weight:700;">LIVE PREVIEW — election still open</span>' : '';
+      document.getElementById('resultSub').innerHTML = `IRV tally · ${data.totalVotes} ballots counted${previewNote}`;
 
+      currentResultsData = data;
       currentTrait = Object.keys(data.traitBreakdown || {})[0] || null;
 
       renderAll(data);
@@ -255,14 +258,14 @@
       if (pill.textContent === traitName) pill.classList.add('active');
     }
 
-    // Redraw the chart by re-running with current data
-    drawTraitChart(null, traitName);
+    // Redraw the chart using the latest loaded results data
+    drawTraitChart(currentResultsData, traitName);
   }
 
   function drawTraitChart(data, traitNameOverride) {
     if (!data && !traitNameOverride) return;
     const trait = traitNameOverride || currentTrait;
-    const breakdown = data?.traitBreakdown || allElections[0]?.traitBreakdown || {};
+    const breakdown = data?.traitBreakdown || currentResultsData?.traitBreakdown || {};
 
     if (!trait || !breakdown[trait]) return;
 
