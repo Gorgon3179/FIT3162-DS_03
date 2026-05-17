@@ -169,9 +169,7 @@
         <div class="section-title">Data Science Visualisations</div>
         <div class="section-sub">Candidate momentum, revote behaviour, ranking depth, and trait relationships.</div>
       </div>
-      <select id="dsElectionSelect" class="ds-select">
-        <option value="">All elections</option>
-      </select>
+      <select id="dsElectionSelect" class="ds-select"></select>
     </div>
 
     <div class="ds-grid">
@@ -350,25 +348,44 @@
     try {
       const path = electionId ? `/api/admin/analytics/data-science?electionId=${encodeURIComponent(electionId)}` : '/api/admin/analytics/data-science';
       const d = await apiFetch(path);
-      renderDsSelect(d.elections||[], electionId);
+      const elections = d.elections || [];
+      const s = el('dsElectionSelect');
+
+      // First load: populate dropdown and auto-select first election with data
+      if (s && s.dataset.ready !== 'true') {
+        if (elections.length > 0) {
+          s.innerHTML = elections.map(e => `<option value="${e.id}">${e.title}</option>`).join('');
+          s.addEventListener('change', () => loadDataScienceVisuals(s.value));
+          s.dataset.ready = 'true';
+
+          // Auto-select first election that actually has vote data on initial load
+          if (!electionId) {
+            const firstWithData = elections.find(e => (e.voterCount || 0) > 0);
+            if (firstWithData) {
+              s.value = firstWithData.id;
+              loadDataScienceVisuals(String(firstWithData.id));
+              return;
+            }
+            // No elections have data yet — show empty states but still render the dropdown
+            s.value = elections[0].id;
+          }
+        } else {
+          s.innerHTML = '<option value="">No elections available</option>';
+          s.dataset.ready = 'true';
+        }
+      }
+
       renderDailyActivity(d.dailyActivity||[]);
       renderStackedMomentum(d.stackedMomentum||[]);
       renderCandidateSupport(d.candidateSupport||[]);
       renderRankingDepth(d.rankingDepth||[]);
-      renderParticipation(d.elections||[]);
+      renderParticipation(elections);
       renderHeatmap('dsRevoteHeatmap', d.revoteTransitions||[], { rowKey:'new_candidate', colKey:'previous_candidate', valueKey:'switch_count', emptyMessage:'No revote transitions yet — no voter has changed their ballot.' });
       renderHeatmap('dsTraitCandidateHeatmap', d.traitCandidateHeatmap||[], { rowKey:'trait_option', colKey:'candidate', valueKey:'share_percent', suffix:'%', emptyMessage:'No trait/candidate data yet.' });
       renderHeatmap('dsCorrelationMatrix', d.candidateTraitAssociation||[], { rowKey:'trait_option', colKey:'candidate', valueKey:'association_score', suffix:'%', diverging:true, emptyMessage:'No association data yet.' });
     } catch (err) {
       ['dsRevoteHeatmap','dsTraitCandidateHeatmap','dsCorrelationMatrix'].forEach(id => { const b=el(id); if(b) b.innerHTML=`<div class="empty-small">Unavailable (${err.message})</div>`; });
     }
-  }
-
-  function renderDsSelect(elections, selectedId) {
-    const s = el('dsElectionSelect'); if (!s || s.dataset.ready==='true') return;
-    s.innerHTML = '<option value="">All elections</option>' + elections.map(e=>`<option value="${e.id}" ${String(e.id)===String(selectedId)?'selected':''}>${e.title}</option>`).join('');
-    s.addEventListener('change', () => loadDataScienceVisuals(s.value));
-    s.dataset.ready = 'true';
   }
 
   function dc(id) { if (dsCharts[id]) { dsCharts[id].destroy(); delete dsCharts[id]; } }
