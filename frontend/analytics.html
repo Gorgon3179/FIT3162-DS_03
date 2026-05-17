@@ -184,7 +184,7 @@
       <!-- 2. Voting Momentum — renamed from "Zoomable Stacked Voting Momentum" -->
       <div class="ds-card wide">
         <h3>Voting Momentum Over Time</h3>
-        <p>Cumulative first-preference submissions per candidate. Scroll horizontally if there are many days of data.</p>
+        <p>Cumulative ranked-choice points per candidate. Rank 1 gives the most points and the bottom rank gives 1 point.</p>
         <div class="scroll-chart"><div class="ds-chart-wrap tall"><canvas id="dsStackedMomentum"></canvas></div></div>
       </div>
 
@@ -374,7 +374,6 @@
           s.dataset.ready = 'true';
         }
       }
-
       renderDailyActivity(d.dailyActivity||[]);
       renderStackedMomentum(d.stackedMomentum||[]);
       renderCandidateSupport(d.candidateSupport||[]);
@@ -387,6 +386,7 @@
       ['dsRevoteHeatmap','dsTraitCandidateHeatmap','dsCorrelationMatrix'].forEach(id => { const b=el(id); if(b) b.innerHTML=`<div class="empty-small">Unavailable (${err.message})</div>`; });
     }
   }
+
 
   function dc(id) { if (dsCharts[id]) { dsCharts[id].destroy(); delete dsCharts[id]; } }
   function uv(rows, key) { return [...new Set(rows.map(r=>r[key]).filter(v=>v!=null))]; }
@@ -416,8 +416,8 @@
     canvas.style.width = `${Math.max(900, days.length*80)}px`;
     dsCharts.dsStackedMomentum = new Chart(canvas, {
       type:'line',
-      data:{ labels:days.map(fd), datasets:candidates.map((c,i)=>({ label:c, data:days.map(d=>{ const f=rows.find(r=>r.day===d&&r.candidate===c); return f?Number(f.votes):0; }), backgroundColor:wa(PALETTE[i%PALETTE.length],0.3), borderColor:PALETTE[i%PALETTE.length], fill:true, tension:0.35, pointRadius:2, pointHoverRadius:5 })) },
-      options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } }, tooltip:{ backgroundColor:'#002a5c', padding:10, cornerRadius:8 } }, scales:{ x:{ stacked:true, grid:{ color:'#edf2f7' } }, y:{ stacked:true, beginAtZero:true, title:{ display:true, text:'First-preference submissions' }, ticks:{ precision:0 }, grid:{ color:'#edf2f7' } } } }
+      data:{ labels:days.map(fd), datasets:candidates.map((c,i)=>({ label:c, data:days.map(d=>{ const f=rows.find(r=>r.day===d&&r.candidate===c); return f?Number(f.cumulative_points ?? f.points ?? 0):0; }), backgroundColor:wa(PALETTE[i%PALETTE.length],0.3), borderColor:PALETTE[i%PALETTE.length], fill:true, tension:0.35, pointRadius:2, pointHoverRadius:5 })) },
+      options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } }, tooltip:{ backgroundColor:'#002a5c', padding:10, cornerRadius:8 } }, scales:{ x:{ stacked:true, grid:{ color:'#edf2f7' } }, y:{ stacked:true, beginAtZero:true, title:{ display:true, text:'Cumulative ranked-choice points' }, ticks:{ precision:0 }, grid:{ color:'#edf2f7' } } } }
     });
   }
 

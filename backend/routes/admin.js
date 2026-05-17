@@ -497,7 +497,7 @@ router.get('/analytics/trait-changes', authenticate, async (req, res) => {
 // Presentation-ready data science visualisations from live MonashVote data.
 router.get('/analytics/data-science', authenticate, async (req, res) => {
   try {
-    const electionId = req.query.electionId ? parseInt(req.query.electionId, 10) : null;
+    let electionId = req.query.electionId ? parseInt(req.query.electionId, 10) : null;
     if (req.query.electionId && isNaN(electionId)) {
       return res.status(400).json({ error: 'Invalid election ID.' });
     }
@@ -528,6 +528,11 @@ router.get('/analytics/data-science', authenticate, async (req, res) => {
       ORDER BY e.created_at DESC, e.election_id DESC
     `, electionRowsParams);
 
+    // Default to the first accessible election so charts never mix candidates from different elections.
+    if (!electionId && electionRows.length > 0) {
+      electionId = electionRows[0].id;
+    }
+
     // Total registered voters = distinct hashes who completed registration (set traits)
     const totalVotersRes = await query(`SELECT COUNT(DISTINCT voter_hash)::int AS total FROM voter_trait_options`);
     const totalVoters = totalVotersRes[0]?.total || 0;
@@ -537,21 +542,35 @@ router.get('/analytics/data-science', authenticate, async (req, res) => {
 
     const momentumFilter = buildBallotWhere('bs');
     const momentumRows = await query(`
+      WITH candidate_counts AS (
+        SELECT election_id, COUNT(*)::int AS candidate_count
+        FROM election_candidates
+        WHERE is_active = TRUE
+        GROUP BY election_id
+      ), daily_points AS (
+        SELECT
+          bs.election_id,
+          e.election_name,
+          DATE_TRUNC('day', bs.submitted_at)::date AS day,
+          ec.display_name AS candidate,
+          SUM(GREATEST(cc.candidate_count - br.rank_position + 1, 0))::int AS points
+        FROM ballot_submissions bs
+        JOIN elections e ON e.election_id = bs.election_id
+        JOIN ballot_rankings br ON br.ballot_submission_id = bs.ballot_submission_id
+        JOIN election_candidates ec ON ec.candidate_id = br.candidate_id
+        JOIN candidate_counts cc ON cc.election_id = bs.election_id
+        ${momentumFilter.sql}
+        GROUP BY bs.election_id, e.election_name, day, ec.display_name
+      )
       SELECT
-        bs.election_id,
-        e.election_name,
-        DATE_TRUNC('day', bs.submitted_at)::date AS day,
-        ec.display_name AS candidate,
-        COUNT(*)::int AS votes
-      FROM ballot_submissions bs
-      JOIN elections e ON e.election_id = bs.election_id
-      JOIN ballot_rankings br
-        ON br.ballot_submission_id = bs.ballot_submission_id
-       AND br.rank_position = 1
-      JOIN election_candidates ec ON ec.candidate_id = br.candidate_id
-      ${momentumFilter.sql}
-      GROUP BY bs.election_id, e.election_name, day, ec.display_name
-      ORDER BY day, ec.display_name
+        election_id,
+        election_name,
+        day,
+        candidate,
+        points,
+        SUM(points) OVER (PARTITION BY election_id, candidate ORDER BY day ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)::int AS cumulative_points
+      FROM daily_points
+      ORDER BY day, candidate
     `, momentumFilter.params);
 
     const supportFilter = buildBallotWhere('bs');
