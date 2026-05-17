@@ -172,11 +172,57 @@
     line-height: 1.5;
   }
   .config-note.show { display: block; }
+  .dev-login {
+    display: none;
+    margin-top: 18px;
+    padding-top: 18px;
+    border-top: 1px solid var(--border);
+  }
+  .dev-login.show { display: block; }
+  .dev-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 8px;
+  }
+  .dev-row {
+    display: flex;
+    gap: 8px;
+  }
+  .dev-row input {
+    flex: 1;
+    min-width: 0;
+    padding: 10px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--text);
+    outline: none;
+  }
+  .dev-row input:focus { border-color: var(--blue); }
+  .dev-btn {
+    padding: 10px 13px;
+    border: none;
+    border-radius: 10px;
+    background: var(--navy);
+    color: white;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .dev-btn:disabled { opacity: 0.65; cursor: not-allowed; }
   @media (max-width: 520px) {
     body { padding: 16px; }
     .card { padding: 36px 28px; border-radius: 18px; }
     h1 { font-size: 29px; }
     .monash-note { flex-direction: column; }
+    .dev-row { flex-direction: column; }
   }
 </style>
 </head>
@@ -205,12 +251,24 @@
     <span id="googleBtnLabel">Loading Google sign-in...</span>
   </button>
   <p class="config-note" id="configNote">Google login is not configured on this server.</p>
+
+  <div class="dev-login" id="devLoginBox">
+    <label class="dev-label" for="devEmail">Development login</label>
+    <div class="dev-row">
+      <input id="devEmail" type="email" value="demo@student.monash.edu" autocomplete="off">
+      <button class="dev-btn" id="devLoginBtn" type="button" onclick="handleDevLogin()">Dev login</button>
+    </div>
+  </div>
 </main>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   let supabaseClient = null;
   const supabaseConfigReady = initSupabaseAuth();
+
+  function setDevLoginVisible(show) {
+    document.getElementById('devLoginBox').classList.toggle('show', show);
+  }
 
   function setAlert(msg, type) {
     const box = document.getElementById('alertBox');
@@ -236,6 +294,8 @@
     try {
       const res = await fetch('/api/auth/supabase-config');
       const config = await res.json();
+      setDevLoginVisible(Boolean(config.devMode));
+
       if (!config.enabled || !window.supabase) {
         btn.disabled = true;
         document.getElementById('googleBtnLabel').textContent = 'Google sign-in unavailable';
@@ -296,6 +356,30 @@
       if (res.ok) window.location.href = 'dashboard.html';
     } catch {}
   })();
+
+  async function handleDevLogin() {
+    setAlert('', '');
+    const btn = document.getElementById('devLoginBtn');
+    const email = document.getElementById('devEmail').value.trim() || 'demo@student.monash.edu';
+    btn.disabled = true;
+    btn.textContent = 'Signing in...';
+
+    try {
+      const res = await fetch('/api/auth/dev-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ email })
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.error || 'Development login failed.');
+      window.location.href = result.isNewUser ? 'traits.html' : 'dashboard.html';
+    } catch (err) {
+      setAlert(err.message || 'Development login failed.', 'error');
+      btn.disabled = false;
+      btn.textContent = 'Dev login';
+    }
+  }
 </script>
 </body>
 </html>

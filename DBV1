@@ -260,6 +260,9 @@ ON election_whitelist(election_id);
 CREATE INDEX idx_election_whitelist_voter
 ON election_whitelist(voter_hash);
 
+CREATE UNIQUE INDEX uq_election_whitelist_election_voter
+ON election_whitelist(election_id, voter_hash);
+
 -- ============================================================
 -- END OF SCHEMA
 -- ============================================================

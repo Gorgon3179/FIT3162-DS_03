@@ -211,6 +211,8 @@ CREATE INDEX IF NOT EXISTS idx_ballot_vote_election_option ON ballot_vote(electi
 CREATE INDEX IF NOT EXISTS idx_ballot_vote_submission ON ballot_vote(ballot_submission_id);
 CREATE INDEX IF NOT EXISTS idx_election_whitelist_election ON election_whitelist(election_id);
 CREATE INDEX IF NOT EXISTS idx_election_whitelist_voter ON election_whitelist(voter_hash);
+CREATE UNIQUE INDEX IF NOT EXISTS uq_election_whitelist_election_voter
+ON election_whitelist(election_id, voter_hash);
 CREATE INDEX IF NOT EXISTS idx_auth_users_email ON auth_users(email);
 CREATE INDEX IF NOT EXISTS idx_auth_users_voter_hash ON auth_users(voter_hash);
 

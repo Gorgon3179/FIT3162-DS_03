@@ -17,6 +17,10 @@ function isMonashEmail(email) {
   return /^[^\s@]+@(student\.monash\.edu|monash\.edu)$/i.test(email.trim());
 }
 
+function isDevMode() {
+  return process.env.DEV_MODE === 'true';
+}
+
 function hashCode(code) {
   return crypto.createHash('sha256').update(code.trim()).digest('hex');
 }
@@ -110,7 +114,8 @@ router.get('/supabase-config', (req, res) => {
   res.json({
     enabled: Boolean(supabaseUrl && supabaseAnonKey),
     url: supabaseUrl || null,
-    anonKey: supabaseAnonKey || null
+    anonKey: supabaseAnonKey || null,
+    devMode: isDevMode()
   });
 });
 
@@ -326,6 +331,32 @@ router.post('/supabase', loginRateLimit(), async (req, res) => {
   } catch (err) {
     console.error('[auth/supabase]', err);
     res.status(err.status || 500).json({ error: err.message || 'Server error.' });
+  }
+});
+
+// ─── POST /api/auth/dev-login ────────────────────────────────────────────────
+router.post('/dev-login', loginRateLimit(), async (req, res) => {
+  try {
+    if (!isDevMode()) {
+      return res.status(404).json({ error: 'Endpoint not found.' });
+    }
+
+    const email = (req.body?.email || 'demo@student.monash.edu').toLowerCase().trim();
+    if (!isMonashEmail(email)) {
+      return res.status(400).json({ error: 'Use a @student.monash.edu or @monash.edu test email.' });
+    }
+
+    const user = await upsertOAuthUser(email);
+    setAuthCookie(res, user);
+
+    res.json({
+      message: 'Signed in with development account.',
+      voterHash: user.voter_hash,
+      isNewUser: user.isNewUser
+    });
+  } catch (err) {
+    console.error('[auth/dev-login]', err);
+    res.status(500).json({ error: 'Server error.' });
   }
 });
 

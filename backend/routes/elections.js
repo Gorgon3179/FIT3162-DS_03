@@ -7,6 +7,19 @@ const { query, getClient } = require('../db');
 const { authenticate } = require('../middleware/auth');
 const { runIRV, fisherYatesShuffle } = require('../utils');
 
+async function canAccessElection(electionId, voterHash, isPrivate) {
+  if (!isPrivate) return true;
+
+  const rows = await query(
+    `SELECT 1
+     FROM election_whitelist
+     WHERE election_id = $1 AND voter_hash = $2
+     LIMIT 1`,
+    [electionId, voterHash]
+  );
+  return rows.length > 0;
+}
+
 // ─── GET /api/elections ───────────────────────────────────────────────────────
 // Returns active elections for voting by default.
 // If ?includeEnded=true is passed, also returns ended open elections so the results page can show them.
@@ -25,6 +38,7 @@ router.get('/', authenticate, async (req, res) => {
         e.election_name AS title,
         e.description,
         e.status,
+        e.is_private AS "isPrivate",
         e.starts_at,
         e.ends_at AS "closesAt",
         e.election_type,
@@ -42,6 +56,15 @@ router.get('/', authenticate, async (req, res) => {
       FROM elections e
       WHERE e.status = 'open'
         AND ${timeFilter}
+        AND (
+          e.is_private = FALSE
+          OR EXISTS (
+            SELECT 1
+            FROM election_whitelist ew
+            WHERE ew.election_id = e.election_id
+              AND ew.voter_hash = $1
+          )
+        )
       ORDER BY e.ends_at
     `, [voterHash]);
 
@@ -61,11 +84,14 @@ router.get('/:id', authenticate, async (req, res) => {
     if (isNaN(electionId)) return res.status(400).json({ error: 'Invalid election ID.' });
 
     const electionRows = await query(
-      'SELECT election_id, election_name, description, status, election_type, starts_at, ends_at FROM elections WHERE election_id = $1',
+      'SELECT election_id, election_name, description, status, is_private, election_type, starts_at, ends_at FROM elections WHERE election_id = $1',
       [electionId]
     );
     if (electionRows.length === 0) return res.status(404).json({ error: 'Election not found.' });
     const e = electionRows[0];
+
+    const allowed = await canAccessElection(electionId, voterHash, e.is_private);
+    if (!allowed) return res.status(403).json({ error: 'You are not eligible to access this election.' });
 
     const candidates = fisherYatesShuffle(await query(
       'SELECT candidate_id AS id, display_name AS name, bio FROM election_candidates WHERE election_id = $1 AND is_active = TRUE',
@@ -82,6 +108,7 @@ router.get('/:id', authenticate, async (req, res) => {
       title: e.election_name,
       description: e.description,
       status: e.status,
+      isPrivate: e.is_private,
       electionType: e.election_type,
       startsAt: e.starts_at,
       closesAt: e.ends_at,
@@ -109,12 +136,16 @@ router.post('/:id/vote', authenticate, async (req, res) => {
     }
 
     const electionRows = await query(
-      `SELECT election_id, status FROM elections
+      `SELECT election_id, status, is_private FROM elections
        WHERE election_id = $1 AND status = 'open' AND NOW() BETWEEN starts_at AND ends_at`,
       [electionId]
     );
     if (electionRows.length === 0) {
       return res.status(400).json({ error: 'Election not found or is closed.' });
+    }
+    const allowed = await canAccessElection(electionId, voterHash, electionRows[0].is_private);
+    if (!allowed) {
+      return res.status(403).json({ error: 'You are not eligible to vote in this election.' });
     }
 
     const candidateRows = await query(
@@ -211,12 +242,16 @@ router.get('/:id/results', authenticate, async (req, res) => {
 
     // Fetch election
     const electionRows = await query(
-      'SELECT election_id, election_name, description, status, ends_at FROM elections WHERE election_id = $1',
+      'SELECT election_id, election_name, description, status, is_private, ends_at FROM elections WHERE election_id = $1',
       [electionId]
     );
     if (electionRows.length === 0) return res.status(404).json({ error: 'Election not found.' });
 
     const election = electionRows[0];
+    const allowed = await canAccessElection(electionId, req.user.voterHash, election.is_private);
+    if (!allowed) {
+      return res.status(403).json({ error: 'You are not eligible to access this election.' });
+    }
 
     // Check if election has ended — admins can pass ?preview=true to see live tallies
     const isPreview = req.query.preview === 'true';

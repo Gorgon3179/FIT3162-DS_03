@@ -22,6 +22,7 @@
   .nav-logo-mark { width: 32px; height: 32px; background: white; border-radius: 7px; display: grid; place-items: center; font-family: 'DM Serif Display', serif; color: var(--navy); font-size: 16px; }
   .nav-logo-text { color: white; font-size: 15px; font-weight: 600; }
   .admin-chip { background: var(--amber); color: #7c3000; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 6px; letter-spacing: 0.3px; margin-left: 6px; }
+  .admin-only.is-hidden { display: none !important; }
   .nav-right { display: flex; align-items: center; gap: 20px; }
   .nav-link { color: rgba(255,255,255,0.7); font-size: 13px; font-weight: 500; text-decoration: none; cursor: pointer; }
   .nav-link:hover { color: white; }
@@ -129,6 +130,13 @@
   .form-row input:focus, .form-row textarea:focus, .form-row select:focus { border-color: var(--blue); }
   .form-row textarea { resize: vertical; min-height: 70px; }
   .form-2col { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .choice-row {
+    display: flex; gap: 10px; align-items: center; padding: 10px 12px;
+    border: 1.5px solid var(--border); border-radius: 10px; background: white;
+  }
+  .choice-row input { width: auto; }
+  .choice-row span { font-size: 13px; color: var(--text); font-weight: 600; }
+  .help-text { font-size: 12px; color: var(--muted); line-height: 1.45; margin-top: 6px; }
   .candidate-row {
     display: flex; gap: 8px; align-items: flex-start; padding: 12px;
     border: 1.5px solid var(--border); border-radius: 10px; margin-bottom: 8px; background: var(--light);
@@ -176,7 +184,7 @@
   <div class="nav-logo">
     <div class="nav-logo-mark">M</div>
     <span class="nav-logo-text">MonashVote</span>
-    <span class="admin-chip">ADMIN</span>
+    <span class="admin-chip admin-only">ADMIN</span>
   </div>
   <div class="nav-right">
     <a class="nav-link" href="dashboard.html">Voter View</a>
@@ -190,12 +198,12 @@
   <div class="page-header">
     <div>
       <h1 class="greeting">Welcome back, <span>admin</span></h1>
-      <p class="sub">Manage elections, review results, and monitor voter activity.</p>
+      <p class="sub" id="pageSub">Review election results, update traits, and manage elections if you are an admin.</p>
     </div>
-    <button class="primary-btn" onclick="openInitiateModal()">+ Initiate Election</button>
+    <button class="primary-btn admin-only" onclick="openInitiateModal()">+ Initiate Election</button>
   </div>
 
-  <div class="stats">
+  <div class="stats admin-only">
     <div class="stat-card"><div class="stat-label">Active Elections</div><div class="stat-val" id="statActive">…</div><div class="stat-change" id="statActiveSub"></div></div>
     <div class="stat-card"><div class="stat-label">Total Voters</div><div class="stat-val" id="statVoters">…</div><div class="stat-change" id="statVotersSub"></div></div>
     <div class="stat-card"><div class="stat-label">Votes Cast</div><div class="stat-val" id="statVotes">…</div><div class="stat-change" id="statVotesSub"></div></div>
@@ -206,23 +214,10 @@
     <div class="panel">
       <div class="panel-header">
         <span class="panel-title">Active Elections</span>
-        <span class="badge">2</span>
+        <span class="badge" id="managementElectionBadge">…</span>
       </div>
-      <div class="election-list">
-        <div class="election-item active">
-          <div class="el-dot"></div>
-          <div style="flex:1">
-            <div class="el-name">Club 1 Election</div>
-            <div class="el-meta">412 votes · Closes in 2 days</div>
-          </div>
-        </div>
-        <div class="election-item">
-          <div class="el-dot"></div>
-          <div style="flex:1">
-            <div class="el-name">Club 2 Election</div>
-            <div class="el-meta">89 votes · Closes in 4 days</div>
-          </div>
-        </div>
+      <div class="election-list" id="managementElectionList">
+        <div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">Loading…</div>
       </div>
       <button class="results-btn" onclick="window.location='results.html'">
         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M2 10h2V6H2v4zm4 0h2V2H6v8zm4 0h2V7h-2v3z" fill="white"/></svg>
@@ -236,14 +231,14 @@
 
     <div style="display:flex; flex-direction:column; gap:20px;">
       <div class="action-grid">
-        <div class="action-card" onclick="openInitiateModal()">
+        <div class="action-card admin-only" onclick="openInitiateModal()">
           <div class="action-icon amber">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7" stroke="#f59e0b" stroke-width="1.5"/><path d="M10 7v6M7 10h6" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/></svg>
           </div>
           <div class="action-label">Initiate Election</div>
           <div class="action-desc">Create a new club election with candidates and settings</div>
         </div>
-        <div class="action-card" onclick="openUpdateModal()">
+        <div class="action-card admin-only" onclick="openUpdateModal()">
           <div class="action-icon blue">
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none"><path d="M4 12l-1 4 4-1 8-8-3-3-8 8z" stroke="#006dae" stroke-width="1.5" stroke-linejoin="round"/></svg>
           </div>
@@ -276,7 +271,7 @@
         </div>
       </div>
 
-      <div class="table-panel">
+      <div class="table-panel admin-only">
         <div class="table-header">
           <span class="panel-title">Recent Voter Activity</span>
           <span style="font-size:12px;color:var(--blue);cursor:pointer;font-weight:500">View all</span>
@@ -317,6 +312,19 @@
           <label for="initEnds">Closes At *</label>
           <input id="initEnds" type="datetime-local">
         </div>
+      </div>
+      <div class="form-row">
+        <label>Access</label>
+        <label class="choice-row">
+          <input id="initPrivate" type="checkbox" onchange="toggleWhitelistField()">
+          <span>Private election</span>
+        </label>
+        <div class="help-text">Private elections are visible only to whitelisted Monash accounts.</div>
+      </div>
+      <div class="form-row" id="whitelistRow" style="display:none">
+        <label for="initWhitelist">Whitelist Emails</label>
+        <textarea id="initWhitelist" placeholder="demo@student.monash.edu&#10;member@monash.edu"></textarea>
+        <div class="help-text">Enter one Monash email per line or separate emails with commas. New whitelist users are prepared automatically.</div>
       </div>
 
       <div class="section-label">Candidates <span style="color:var(--blue);font-size:11px;text-transform:none;letter-spacing:0;">(minimum 2)</span></div>
@@ -373,6 +381,19 @@
             </select>
           </div>
         </div>
+        <div class="form-row">
+          <label>Access</label>
+          <label class="choice-row">
+            <input id="updPrivate" type="checkbox" onchange="toggleUpdateWhitelistField()">
+            <span>Private election</span>
+          </label>
+          <div class="help-text">Private elections are visible only to whitelisted Monash accounts.</div>
+        </div>
+        <div class="form-row" id="updWhitelistRow" style="display:none">
+          <label for="updWhitelist">Whitelist Emails</label>
+          <textarea id="updWhitelist" placeholder="demo@student.monash.edu&#10;member@monash.edu"></textarea>
+          <div class="help-text">Changing this list replaces the existing whitelist for this election.</div>
+        </div>
       </div>
     </div>
     <div class="form-msg" id="updMsg"></div>
@@ -402,6 +423,44 @@
     return `${hrs} hour${hrs !== 1 ? 's' : ''} ago`;
   }
 
+  function timeLeft(closesAt) {
+    const ms = new Date(closesAt) - Date.now();
+    if (ms < 0) return 'Closed';
+    const days = Math.floor(ms / 86400000);
+    const hours = Math.floor((ms % 86400000) / 3600000);
+    return days > 0 ? `Closes in ${days}d` : `Closes in ${hours}h`;
+  }
+
+  async function loadAccessibleElections() {
+    const list = document.getElementById('managementElectionList');
+    const badge = document.getElementById('managementElectionBadge');
+    try {
+      const res = await fetch('/api/elections', { credentials: 'include' });
+      if (!res.ok) throw new Error();
+      const data = await res.json();
+      const elections = data.elections || [];
+      badge.textContent = elections.length;
+
+      if (elections.length === 0) {
+        list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">No accessible active elections.</div>';
+        return;
+      }
+
+      list.innerHTML = elections.map((e, i) => `
+        <div class="election-item ${i === 0 ? 'active' : ''}" onclick="window.location='vote.html?id=${e.id}'">
+          <div class="el-dot"></div>
+          <div style="flex:1">
+            <div class="el-name">${e.title}</div>
+            <div class="el-meta">${e.hasVoted ? 'Voted' : 'Not voted'} · ${timeLeft(e.closesAt)}${e.isPrivate ? ' · Private' : ''}</div>
+          </div>
+        </div>
+      `).join('');
+    } catch {
+      badge.textContent = '!';
+      list.innerHTML = '<div style="padding:20px;text-align:center;color:var(--muted);font-size:13px;">Could not load elections.</div>';
+    }
+  }
+
   /* ── modal helpers ──────────────────────────────────────────────── */
   function openModal(id) { document.getElementById(id).classList.add('open'); document.body.style.overflow = 'hidden'; }
   function closeModal(id) { document.getElementById(id).classList.remove('open'); document.body.style.overflow = ''; }
@@ -416,6 +475,17 @@
     const el = document.getElementById(id);
     el.className = 'form-msg';
     el.textContent = '';
+  }
+
+  function setAdminMode(isAdmin) {
+    document.querySelectorAll('.admin-only').forEach(el => {
+      el.classList.toggle('is-hidden', !isAdmin);
+    });
+    document.querySelector('.greeting span').textContent = isAdmin ? 'admin' : 'voter';
+    document.querySelector('.avatar').textContent = isAdmin ? 'AD' : 'MV';
+    document.getElementById('pageSub').textContent = isAdmin
+      ? 'Manage elections, review results, and monitor voter activity.'
+      : 'Review election results and update your voter traits.';
   }
 
   /* ── INITIATE ELECTION ──────────────────────────────────────────── */
@@ -453,12 +523,25 @@
     });
   }
 
+  function toggleWhitelistField() {
+    document.getElementById('whitelistRow').style.display =
+      document.getElementById('initPrivate').checked ? 'block' : 'none';
+  }
+
+  function toggleUpdateWhitelistField() {
+    document.getElementById('updWhitelistRow').style.display =
+      document.getElementById('updPrivate').checked ? 'block' : 'none';
+  }
+
   function openInitiateModal() {
     // Reset form
     document.getElementById('initTitle_').value = '';
     document.getElementById('initDesc').value = '';
     document.getElementById('initStarts').value = '';
     document.getElementById('initEnds').value = '';
+    document.getElementById('initPrivate').checked = false;
+    document.getElementById('initWhitelist').value = '';
+    toggleWhitelistField();
     document.getElementById('candidateList').innerHTML = '';
     candidateCount = 0;
     hideMsg('initMsg');
@@ -487,6 +570,11 @@
     const desc    = document.getElementById('initDesc').value.trim();
     const starts  = document.getElementById('initStarts').value;
     const ends    = document.getElementById('initEnds').value;
+    const isPrivate = document.getElementById('initPrivate').checked;
+    const whitelistEmails = document.getElementById('initWhitelist').value
+      .split(/[\n,]+/)
+      .map(email => email.trim())
+      .filter(Boolean);
 
     const nameInputs = document.querySelectorAll('#candidateList [data-cand-name]');
     const bioInputs  = document.querySelectorAll('#candidateList [data-cand-bio]');
@@ -501,6 +589,7 @@
     if (!starts || !ends)           return showMsg('initMsg', 'error', 'Start and close dates are required.');
     if (new Date(ends) <= new Date(starts)) return showMsg('initMsg', 'error', 'Close date must be after start date.');
     if (candidates.length < 2)     return showMsg('initMsg', 'error', 'Please add at least 2 named candidates.');
+    if (isPrivate && whitelistEmails.length === 0) return showMsg('initMsg', 'error', 'Private elections require at least one whitelist email.');
 
     const btn = document.getElementById('initSubmitBtn');
     btn.disabled = true;
@@ -511,7 +600,15 @@
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title, description: desc, startsAt: new Date(starts).toISOString(), closesAt: new Date(ends).toISOString(), candidates })
+        body: JSON.stringify({
+          title,
+          description: desc,
+          startsAt: new Date(starts).toISOString(),
+          closesAt: new Date(ends).toISOString(),
+          candidates,
+          isPrivate,
+          whitelistEmails
+        })
       });
       const data = await res.json();
       if (!res.ok) {
@@ -519,7 +616,8 @@
         btn.disabled = false;
         btn.textContent = 'Create Election';
       } else {
-        showMsg('initMsg', 'success', `Election created successfully! (ID: ${data.electionId})`);
+        const accessText = data.isPrivate ? ` Private with ${data.whitelistCount} whitelisted voter${data.whitelistCount === 1 ? '' : 's'}.` : ' Public election.';
+        showMsg('initMsg', 'success', `Election created successfully! (ID: ${data.electionId}).${accessText}`);
         btn.textContent = '✓ Created';
         setTimeout(() => { closeModal('initiateBackdrop'); location.reload(); }, 1600);
       }
@@ -568,6 +666,9 @@
     document.getElementById('updElTitle').value = el.title || '';
     document.getElementById('updElDesc').value  = el.description || '';
     document.getElementById('updStatus').value  = el.status || 'open';
+    document.getElementById('updPrivate').checked = Boolean(el.isPrivate);
+    document.getElementById('updWhitelist').value = (el.whitelistEmails || []).join('\n');
+    toggleUpdateWhitelistField();
 
     // Format closes_at for datetime-local
     if (el.closesAt) {
@@ -588,11 +689,17 @@
     const desc   = document.getElementById('updElDesc').value.trim();
     const ends   = document.getElementById('updEnds').value;
     const status = document.getElementById('updStatus').value;
+    const isPrivate = document.getElementById('updPrivate').checked;
+    const whitelistEmails = document.getElementById('updWhitelist').value
+      .split(/[\n,]+/)
+      .map(email => email.trim())
+      .filter(Boolean);
 
     if (!id)    return showMsg('updMsg', 'error', 'Please select an election.');
     if (!title) return showMsg('updMsg', 'error', 'Title cannot be empty.');
+    if (isPrivate && whitelistEmails.length === 0) return showMsg('updMsg', 'error', 'Private elections require at least one whitelist email.');
 
-    const body = { title, description: desc, status };
+    const body = { title, description: desc, status, isPrivate, whitelistEmails };
     if (ends) body.ends_at = new Date(ends).toISOString();
 
     const btn = document.getElementById('updSubmitBtn');
@@ -612,7 +719,8 @@
         btn.disabled = false;
         btn.textContent = 'Save Changes';
       } else {
-        showMsg('updMsg', 'success', 'Election updated successfully!');
+        const accessText = data.isPrivate ? ` Private with ${data.whitelistCount} whitelisted voter${data.whitelistCount === 1 ? '' : 's'}.` : ' Public election.';
+        showMsg('updMsg', 'success', `Election updated successfully.${accessText}`);
         btn.textContent = '✓ Saved';
         setTimeout(() => { closeModal('updateBackdrop'); location.reload(); }, 1600);
       }
@@ -626,8 +734,14 @@
   /* ── Stats & Activity load ──────────────────────────────────────── */
   (async () => {
     try {
+      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!meRes.ok) { window.location.href = 'login.html'; return; }
+      const me = await meRes.json();
+      setAdminMode(Boolean(me.isAdmin));
+      await loadAccessibleElections();
+      if (!me.isAdmin) return;
+
       const res = await fetch('/api/admin/stats', { credentials: 'include' });
-      if (res.status === 403) document.querySelector('.greeting span').textContent = '(not admin)';
       if (res.ok) {
         const d = await res.json();
         document.getElementById('statActive').textContent  = d.activeElections;
@@ -639,6 +753,11 @@
     } catch {}
 
     try {
+      const meRes = await fetch('/api/auth/me', { credentials: 'include' });
+      if (!meRes.ok) return;
+      const me = await meRes.json();
+      if (!me.isAdmin) return;
+
       const res = await fetch('/api/admin/activity', { credentials: 'include' });
       if (res.ok) {
         const d = await res.json();

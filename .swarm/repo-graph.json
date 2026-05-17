@@ -1,0 +1,256 @@
+{
+  "schema_version": "1.0.0",
+  "workspaceRoot": "/Users/duong/Desktop/FIT3162-DS_03",
+  "nodes": {
+    "/Users/duong/Desktop/FIT3162-DS_03/backend/_test.js": {
+      "filePath": "/Users/duong/Desktop/FIT3162-DS_03/backend/_test.js",
+      "moduleName": "backend/_test.js",
+      "exports": [],
+      "imports": [
+        "express"
+      ],
+      "language": "javascript",
+      "mtime": "2026-05-15T14:03:12.246Z"
+    },
+    "/Users/duong/Desktop/FIT3162-DS_03/backend/db.js": {
+      "filePath": "/Users/duong/Desktop/FIT3162-DS_03/backend/db.js",
+      "moduleName": "backend/db.js",
+      "exports": [],
+      "imports": [
+        "pg",
+        "pg"
+      ],
+      "language": "javascript",
+      "mtime": "2026-05-15T14:03:12.247Z"
+    },
+    "/Users/duong/Desktop/FIT3162-DS_03/backend/middleware/auth.js": {
+      "filePath": "/Users/duong/Desktop/FIT3162-DS_03/backend/middleware/auth.js",
+      "moduleName": "backend/middleware/auth.js",
+      "exports": [],
+      "imports": [
+        "jsonwebtoken"
+      ],
+      "language": "javascript",
+      "mtime": "2026-05-15T14:03:12.247Z"
+    },
+    "/Users/duong/Desktop/FIT3162-DS_03/backend/middleware/ratelimit.js": {
+      "filePath": "/Users/duong/Desktop/FIT3162-DS_03/backend/middleware/ratelimit.js",
+      "moduleName": "backend/middleware/ratelimit.js",
+      "exports": [],
+      "imports": [],
+      "language": "javascript",
+      "mtime": "2026-05-15T14:03:12.247Z"
+    },
+    "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/admin.js": {
+      "filePath": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/admin.js",
+      "moduleName": "backend/routes/admin.js",
+      "exports": [],
+      "imports": [
+        "express",
+        "../db",
+        "../middleware/auth"
+      ],
+      "language": "javascript",
+      "mtime": "2026-05-15T14:03:12.248Z"
+    },
+    "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/auth.js": {
+      "filePath": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/auth.js",
+      "moduleName": "backend/routes/auth.js",
+      "exports": [],
+      "imports": [
+        "express",
+        "bcryptjs",
+        "jsonwebtoken",
+        "crypto",
+        "../db",
+        "../utils",
+        "../middleware/ratelimit"
+      ],
+      "language": "javascript",
+      "mtime": "2026-05-15T14:03:12.248Z"
+    },
+    "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/elections.js": {
+      "filePath": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/elections.js",
+      "moduleName": "backend/routes/elections.js",
+      "exports": [],
+      "imports": [
+        "express",
+        "../db",
+        "../middleware/auth",
+        "../utils"
+      ],
+      "language": "javascript",
+      "mtime": "2026-05-15T14:03:12.248Z"
+    },
+    "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/traits.js": {
+      "filePath": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/traits.js",
+      "moduleName": "backend/routes/traits.js",
+      "exports": [],
+      "imports": [
+        "express",
+        "../db",
+        "../middleware/auth"
+      ],
+      "language": "javascript",
+      "mtime": "2026-05-15T14:03:12.248Z"
+    },
+    "/Users/duong/Desktop/FIT3162-DS_03/backend/server.js": {
+      "filePath": "/Users/duong/Desktop/FIT3162-DS_03/backend/server.js",
+      "moduleName": "backend/server.js",
+      "exports": [],
+      "imports": [
+        "dotenv",
+        "express",
+        "cors",
+        "cookie-parser",
+        "path",
+        "./routes/auth",
+        "./routes/elections",
+        "./routes/traits",
+        "./routes/admin",
+        "./db"
+      ],
+      "language": "javascript",
+      "mtime": "2026-05-15T14:03:12.248Z"
+    },
+    "/Users/duong/Desktop/FIT3162-DS_03/backend/utils.js": {
+      "filePath": "/Users/duong/Desktop/FIT3162-DS_03/backend/utils.js",
+      "moduleName": "backend/utils.js",
+      "exports": [],
+      "imports": [
+        "crypto",
+        "nodemailer"
+      ],
+      "language": "javascript",
+      "mtime": "2026-05-15T14:03:12.249Z"
+    },
+    "/Users/duong/Desktop/FIT3162-DS_03/generate_monashvote_seed.py": {
+      "filePath": "/Users/duong/Desktop/FIT3162-DS_03/generate_monashvote_seed.py",
+      "moduleName": "generate_monashvote_seed.py",
+      "exports": [
+        "WEIGHTS",
+        "TRAITS",
+        "CANDIDATES",
+        "weighted_choice",
+        "rand_time",
+        "voter_hash",
+        "write_csv",
+        "generate_traits",
+        "mutate_traits",
+        "make_rankings",
+        "main"
+      ],
+      "imports": [],
+      "language": "python",
+      "mtime": "2026-05-15T14:03:12.250Z"
+    },
+    "/Users/duong/Desktop/FIT3162-DS_03/supabase/functions/send-verification-email/index.ts": {
+      "filePath": "/Users/duong/Desktop/FIT3162-DS_03/supabase/functions/send-verification-email/index.ts",
+      "moduleName": "supabase/functions/send-verification-email/index.ts",
+      "exports": [],
+      "imports": [
+        "npm:nodemailer@6.9.14"
+      ],
+      "language": "typescript",
+      "mtime": "2026-05-15T14:03:12.250Z"
+    }
+  },
+  "edges": [
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/admin.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/db.js",
+      "importSpecifier": "../db",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/admin.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/middleware/auth.js",
+      "importSpecifier": "../middleware/auth",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/auth.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/db.js",
+      "importSpecifier": "../db",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/auth.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/middleware/ratelimit.js",
+      "importSpecifier": "../middleware/ratelimit",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/auth.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/utils.js",
+      "importSpecifier": "../utils",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/elections.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/db.js",
+      "importSpecifier": "../db",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/elections.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/middleware/auth.js",
+      "importSpecifier": "../middleware/auth",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/elections.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/utils.js",
+      "importSpecifier": "../utils",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/traits.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/db.js",
+      "importSpecifier": "../db",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/traits.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/middleware/auth.js",
+      "importSpecifier": "../middleware/auth",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/server.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/db.js",
+      "importSpecifier": "./db",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/server.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/admin.js",
+      "importSpecifier": "./routes/admin",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/server.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/auth.js",
+      "importSpecifier": "./routes/auth",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/server.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/elections.js",
+      "importSpecifier": "./routes/elections",
+      "importType": "require"
+    },
+    {
+      "source": "/Users/duong/Desktop/FIT3162-DS_03/backend/server.js",
+      "target": "/Users/duong/Desktop/FIT3162-DS_03/backend/routes/traits.js",
+      "importSpecifier": "./routes/traits",
+      "importType": "require"
+    }
+  ],
+  "metadata": {
+    "generatedAt": "2026-05-15T15:01:12.930Z",
+    "generator": "repo-graph",
+    "nodeCount": 12,
+    "edgeCount": 15
+  }
+}

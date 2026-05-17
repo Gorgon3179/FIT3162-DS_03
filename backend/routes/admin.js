@@ -3,8 +3,97 @@
 
 const express = require('express');
 const router = express.Router();
+const crypto = require('crypto');
 const { query } = require('../db');
 const { authenticate, requireAdmin } = require('../middleware/auth');
+const { hashVoterId } = require('../utils');
+
+function parseBooleanFlag(value) {
+  if (typeof value === 'boolean') return value;
+  if (typeof value === 'string') {
+    return ['true', '1', 'yes', 'on'].includes(value.trim().toLowerCase());
+  }
+  return false;
+}
+
+function hasField(body, field) {
+  return Object.prototype.hasOwnProperty.call(body || {}, field);
+}
+
+function getPrivateInput(body) {
+  if (hasField(body, 'isPrivate')) return parseBooleanFlag(body.isPrivate);
+  if (hasField(body, 'is_private')) return parseBooleanFlag(body.is_private);
+  return undefined;
+}
+
+function parseWhitelistEmails(whitelistEmails = []) {
+  const values = Array.isArray(whitelistEmails)
+    ? whitelistEmails
+    : String(whitelistEmails || '').split(/[\n,;]+/);
+
+  return [...new Set(
+    values
+      .map(email => String(email).toLowerCase().trim())
+      .filter(Boolean)
+  )];
+}
+
+async function resolveWhitelistUsers(whitelistEmails = []) {
+  const users = [];
+  for (const email of parseWhitelistEmails(whitelistEmails)) {
+    if (!/^[^\s@]+@(student\.monash\.edu|monash\.edu)$/i.test(email)) {
+      const err = new Error(`Invalid whitelist email: ${email}`);
+      err.status = 400;
+      throw err;
+    }
+
+    const voterHash = hashVoterId(email);
+    await query(
+      'INSERT INTO voters (voter_hash, salt) VALUES ($1, $2) ON CONFLICT (voter_hash) DO NOTHING',
+      [voterHash, crypto.randomBytes(16).toString('hex')]
+    );
+    await query(
+      `INSERT INTO auth_users (email, password_hash, voter_hash, is_admin)
+       VALUES ($1, '', $2, FALSE)
+       ON CONFLICT (email) DO UPDATE
+         SET voter_hash = EXCLUDED.voter_hash`,
+      [email, voterHash]
+    );
+    users.push({ email, voterHash });
+  }
+  return users;
+}
+
+function pushParam(params, value) {
+  params.push(value);
+  return `$${params.length}`;
+}
+
+function electionAccessCondition(req, params, electionAlias = 'e') {
+  if (req.user?.isAdmin) return 'TRUE';
+  const voterHashParam = pushParam(params, req.user.voterHash);
+  return `(${electionAlias}.is_private = FALSE OR EXISTS (
+    SELECT 1 FROM election_whitelist ew_access
+    WHERE ew_access.election_id = ${electionAlias}.election_id
+      AND ew_access.voter_hash = ${voterHashParam}
+  ))`;
+}
+
+function ballotElectionAccessCondition(req, params, ballotAlias = 'bs') {
+  if (req.user?.isAdmin) return 'TRUE';
+  const voterHashParam = pushParam(params, req.user.voterHash);
+  return `EXISTS (
+    SELECT 1 FROM elections e_access
+    WHERE e_access.election_id = ${ballotAlias}.election_id
+      AND (
+        e_access.is_private = FALSE OR EXISTS (
+          SELECT 1 FROM election_whitelist ew_access
+          WHERE ew_access.election_id = e_access.election_id
+            AND ew_access.voter_hash = ${voterHashParam}
+        )
+      )
+  )`;
+}
 
 // ─── GET /api/admin/stats ─────────────────────────────────────────────────────
 router.get('/stats', authenticate, requireAdmin, async (req, res) => {
@@ -56,10 +145,15 @@ router.get('/activity', authenticate, requireAdmin, async (req, res) => {
 router.get('/elections', authenticate, requireAdmin, async (req, res) => {
   try {
     const rows = await query(
-      `SELECT election_id AS id, election_name AS title, description, status,
-              starts_at AS "startsAt", ends_at AS "closesAt", election_type AS "electionType"
-       FROM elections
-       ORDER BY ends_at DESC`
+      `SELECT e.election_id AS id, e.election_name AS title, e.description, e.status,
+              e.is_private AS "isPrivate", e.starts_at AS "startsAt",
+              e.ends_at AS "closesAt", e.election_type AS "electionType",
+              COALESCE(ARRAY_REMOVE(ARRAY_AGG(au.email ORDER BY au.email), NULL), '{}') AS "whitelistEmails"
+       FROM elections e
+       LEFT JOIN election_whitelist ew ON ew.election_id = e.election_id
+       LEFT JOIN auth_users au ON au.voter_hash = ew.voter_hash
+       GROUP BY e.election_id, e.election_name, e.description, e.status, e.is_private, e.starts_at, e.ends_at, e.election_type
+       ORDER BY e.ends_at DESC`
     );
     res.json({ elections: rows });
   } catch (err) {
@@ -72,19 +166,29 @@ router.get('/elections', authenticate, requireAdmin, async (req, res) => {
 router.post('/elections', authenticate, requireAdmin, async (req, res) => {
   try {
     const { title, description, clubId, startsAt, closesAt, candidates } = req.body;
+    const isPrivate = parseBooleanFlag(req.body.isPrivate ?? req.body.is_private);
+    const whitelistEmails = parseWhitelistEmails(req.body.whitelistEmails ?? req.body.whitelist_emails);
 
     if (!title || !startsAt || !closesAt || !candidates || candidates.length < 2) {
       return res.status(400).json({ error: 'Title, startsAt, closesAt, and at least 2 candidates required.' });
+    }
+    if (isPrivate && whitelistEmails.length === 0) {
+      return res.status(400).json({ error: 'Private elections require at least one whitelisted Monash email.' });
+    }
+
+    const whitelistUsers = [];
+    if (isPrivate) {
+      whitelistUsers.push(...await resolveWhitelistUsers(whitelistEmails));
     }
 
     // Use club_id = 1 as default if not provided
     const effectiveClubId = clubId || 1;
 
     const electionRows = await query(
-      `INSERT INTO elections (club_id, election_name, description, election_type, status, starts_at, ends_at)
-       VALUES ($1, $2, $3, 'IRV', 'open', $4, $5)
+      `INSERT INTO elections (club_id, election_name, description, election_type, status, is_private, starts_at, ends_at)
+       VALUES ($1, $2, $3, 'IRV', 'open', $4, $5, $6)
        RETURNING election_id`,
-      [effectiveClubId, title, description || '', startsAt, closesAt]
+      [effectiveClubId, title, description || '', isPrivate, startsAt, closesAt]
     );
     const electionId = electionRows[0].election_id;
 
@@ -96,10 +200,29 @@ router.post('/elections', authenticate, requireAdmin, async (req, res) => {
       );
     }
 
-    res.status(201).json({ message: 'Election created.', electionId });
+    if (isPrivate) {
+      for (const user of whitelistUsers) {
+        await query(
+          `INSERT INTO election_whitelist (election_id, voter_hash)
+           SELECT $1, $2
+           WHERE NOT EXISTS (
+             SELECT 1 FROM election_whitelist
+             WHERE election_id = $1 AND voter_hash = $2
+           )`,
+          [electionId, user.voterHash]
+        );
+      }
+    }
+
+    res.status(201).json({
+      message: 'Election created.',
+      electionId,
+      isPrivate,
+      whitelistCount: whitelistUsers.length
+    });
   } catch (err) {
     console.error('[admin/create-election]', err);
-    res.status(500).json({ error: 'Server error.' });
+    res.status(err.status || 500).json({ error: err.message || 'Server error.' });
   }
 });
 
@@ -110,9 +233,24 @@ router.patch('/elections/:id', authenticate, requireAdmin, async (req, res) => {
     if (isNaN(electionId)) return res.status(400).json({ error: 'Invalid election ID.' });
 
     const { status, title, description, ends_at } = req.body;
+    const privateInput = getPrivateInput(req.body);
+    const hasPrivateInput = privateInput !== undefined;
+    const hasWhitelistInput = hasField(req.body, 'whitelistEmails') || hasField(req.body, 'whitelist_emails');
+    const whitelistEmails = parseWhitelistEmails(req.body.whitelistEmails ?? req.body.whitelist_emails);
 
-    const existing = await query('SELECT election_id FROM elections WHERE election_id = $1', [electionId]);
+    const existing = await query('SELECT election_id, is_private FROM elections WHERE election_id = $1', [electionId]);
     if (existing.length === 0) return res.status(404).json({ error: 'Election not found.' });
+
+    const finalPrivate = hasPrivateInput ? privateInput : existing[0].is_private;
+    const shouldReplaceWhitelist = hasPrivateInput || hasWhitelistInput;
+    const whitelistUsers = [];
+
+    if (finalPrivate && shouldReplaceWhitelist) {
+      if (whitelistEmails.length === 0) {
+        return res.status(400).json({ error: 'Private elections require at least one whitelisted Monash email.' });
+      }
+      whitelistUsers.push(...await resolveWhitelistUsers(whitelistEmails));
+    }
 
     const sets = [];
     const params = [];
@@ -134,29 +272,57 @@ router.patch('/elections/:id', authenticate, requireAdmin, async (req, res) => {
       sets.push(`ends_at = $${paramIdx++}`);
       params.push(ends_at);
     }
+    if (hasPrivateInput) {
+      sets.push(`is_private = $${paramIdx++}`);
+      params.push(privateInput);
+    }
 
-    if (sets.length === 0) {
+    if (sets.length === 0 && !shouldReplaceWhitelist) {
       return res.status(400).json({ error: 'No fields to update.' });
     }
 
-    params.push(electionId);
+    if (sets.length > 0) {
+      params.push(electionId);
 
-    await query(
-      `UPDATE elections SET ${sets.join(', ')} WHERE election_id = $${paramIdx}`,
-      params
-    );
+      await query(
+        `UPDATE elections SET ${sets.join(', ')} WHERE election_id = $${paramIdx}`,
+        params
+      );
+    }
 
-    res.json({ message: 'Election updated.' });
+    if (shouldReplaceWhitelist) {
+      await query('DELETE FROM election_whitelist WHERE election_id = $1', [electionId]);
+
+      if (finalPrivate) {
+        for (const user of whitelistUsers) {
+          await query(
+            `INSERT INTO election_whitelist (election_id, voter_hash)
+             SELECT $1, $2
+             WHERE NOT EXISTS (
+               SELECT 1 FROM election_whitelist
+               WHERE election_id = $1 AND voter_hash = $2
+             )`,
+            [electionId, user.voterHash]
+          );
+        }
+      }
+    }
+
+    res.json({
+      message: 'Election updated.',
+      isPrivate: finalPrivate,
+      whitelistCount: finalPrivate ? whitelistUsers.length : 0
+    });
   } catch (err) {
     console.error('[admin/update-election]', err);
-    res.status(500).json({ error: 'Server error.' });
+    res.status(err.status || 500).json({ error: err.message || 'Server error.' });
   }
 });
 
 
 // ─── GET /api/admin/analytics/trait-distribution ────────────────────────────
-// Admin analytics: current voter trait distribution grouped by trait category.
-router.get('/analytics/trait-distribution', authenticate, requireAdmin, async (req, res) => {
+// Logged-in analytics: current voter trait distribution grouped by trait category.
+router.get('/analytics/trait-distribution', authenticate, async (req, res) => {
   try {
     const voterRows = await query(`
       SELECT COUNT(DISTINCT voter_hash)::int AS count
@@ -228,26 +394,32 @@ router.get('/analytics/trait-distribution', authenticate, requireAdmin, async (r
 });
 
 // ─── GET /api/admin/analytics/vote-changes ──────────────────────────────────
-// Admin analytics: vote submissions and re-submissions over time.
-router.get('/analytics/vote-changes', authenticate, requireAdmin, async (req, res) => {
+// Logged-in analytics: vote submissions and re-submissions over time.
+router.get('/analytics/vote-changes', authenticate, async (req, res) => {
   try {
+    const totalParams = [];
+    const totalAccess = ballotElectionAccessCondition(req, totalParams, 'bs');
     const totalRows = await query(`
       SELECT
         COUNT(*) FILTER (WHERE is_current = TRUE)::int AS total_new,
         COUNT(*) FILTER (WHERE submission_number > 1)::int AS total_changed,
         COUNT(DISTINCT voter_hash) FILTER (WHERE submission_number > 1)::int AS voters_who_changed
-      FROM ballot_submissions
-    `);
+      FROM ballot_submissions bs
+      WHERE ${totalAccess}
+    `, totalParams);
 
+    const timelineParams = [];
+    const timelineAccess = ballotElectionAccessCondition(req, timelineParams, 'bs');
     const timelineRows = await query(`
       SELECT
         DATE_TRUNC('day', submitted_at)::date AS date,
         COUNT(*) FILTER (WHERE submission_number = 1)::int AS new_votes,
         COUNT(*) FILTER (WHERE submission_number > 1)::int AS changed_votes
-      FROM ballot_submissions
+      FROM ballot_submissions bs
+      WHERE ${timelineAccess}
       GROUP BY date
       ORDER BY date
-    `);
+    `, timelineParams);
 
     res.json({
       totals: {
@@ -268,8 +440,8 @@ router.get('/analytics/vote-changes', authenticate, requireAdmin, async (req, re
 });
 
 // ─── GET /api/admin/analytics/trait-changes ─────────────────────────────────
-// Admin analytics: initial trait submissions and later trait updates over time.
-router.get('/analytics/trait-changes', authenticate, requireAdmin, async (req, res) => {
+// Logged-in analytics: initial trait submissions and later trait updates over time.
+router.get('/analytics/trait-changes', authenticate, async (req, res) => {
   try {
     const totalRows = await query(`
       WITH per_voter AS (
@@ -323,11 +495,25 @@ router.get('/analytics/trait-changes', authenticate, requireAdmin, async (req, r
 
 // ─── GET /api/admin/analytics/data-science ──────────────────────────────────
 // Presentation-ready data science visualisations from live MonashVote data.
-router.get('/analytics/data-science', authenticate, requireAdmin, async (req, res) => {
+router.get('/analytics/data-science', authenticate, async (req, res) => {
   try {
     const electionId = req.query.electionId ? parseInt(req.query.electionId, 10) : null;
-    const electionFilter = electionId ? 'WHERE bs.election_id = $1' : '';
-    const params = electionId ? [electionId] : [];
+    if (req.query.electionId && isNaN(electionId)) {
+      return res.status(400).json({ error: 'Invalid election ID.' });
+    }
+
+    function buildBallotWhere(ballotAlias = 'bs', extraConditions = []) {
+      const filterParams = [];
+      const conditions = [...extraConditions];
+      if (electionId) {
+        conditions.push(`${ballotAlias}.election_id = ${pushParam(filterParams, electionId)}`);
+      }
+      conditions.push(ballotElectionAccessCondition(req, filterParams, ballotAlias));
+      return { sql: `WHERE ${conditions.join(' AND ')}`, params: filterParams };
+    }
+
+    const electionRowsParams = [];
+    const electionRowsAccess = electionAccessCondition(req, electionRowsParams, 'e');
 
     const electionRows = await query(`
       SELECT
@@ -337,9 +523,10 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
       FROM elections e
       LEFT JOIN ballot_submissions bs
              ON bs.election_id = e.election_id AND bs.is_current = TRUE
+      WHERE ${electionRowsAccess}
       GROUP BY e.election_id, e.election_name
       ORDER BY e.created_at DESC, e.election_id DESC
-    `);
+    `, electionRowsParams);
 
     // Total registered voters = distinct hashes who completed registration (set traits)
     const totalVotersRes = await query(`SELECT COUNT(DISTINCT voter_hash)::int AS total FROM voter_trait_options`);
@@ -348,6 +535,7 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
     // Attach totalVoters to every election row so the frontend can compute participation %
     const electionsWithParticipation = electionRows.map(e => ({ ...e, totalVoters }));
 
+    const momentumFilter = buildBallotWhere('bs');
     const momentumRows = await query(`
       SELECT
         bs.election_id,
@@ -361,11 +549,12 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
         ON br.ballot_submission_id = bs.ballot_submission_id
        AND br.rank_position = 1
       JOIN election_candidates ec ON ec.candidate_id = br.candidate_id
-      ${electionFilter}
+      ${momentumFilter.sql}
       GROUP BY bs.election_id, e.election_name, day, ec.display_name
       ORDER BY day, ec.display_name
-    `, params);
+    `, momentumFilter.params);
 
+    const supportFilter = buildBallotWhere('bs');
     const supportRows = await query(`
       WITH daily AS (
         SELECT
@@ -378,7 +567,7 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
           ON br.ballot_submission_id = bs.ballot_submission_id
          AND br.rank_position = 1
         JOIN election_candidates ec ON ec.candidate_id = br.candidate_id
-        ${electionFilter}
+        ${supportFilter.sql}
         GROUP BY bs.election_id, day, ec.display_name
       ), totals AS (
         SELECT election_id, day, SUM(votes) AS total_votes
@@ -391,8 +580,9 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
       FROM daily d
       JOIN totals t ON t.election_id = d.election_id AND t.day = d.day
       ORDER BY d.day, d.candidate
-    `, params);
+    `, supportFilter.params);
 
+    const activityFilter = buildBallotWhere('bs');
     const activityRows = await query(`
       WITH vote_activity AS (
         SELECT
@@ -400,7 +590,7 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
           COUNT(*) FILTER (WHERE submission_number = 1)::int AS new_votes,
           COUNT(*) FILTER (WHERE submission_number > 1)::int AS changed_votes
         FROM ballot_submissions bs
-        ${electionFilter}
+        ${activityFilter.sql}
         GROUP BY day
       ), trait_activity AS (
         SELECT
@@ -417,22 +607,24 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
       FROM vote_activity va
       FULL OUTER JOIN trait_activity ta ON ta.day = va.day
       ORDER BY day
-    `, params);
+    `, activityFilter.params);
 
+    const rankingDepthFilter = buildBallotWhere('bs');
     const rankingDepthRows = await query(`
       WITH depths AS (
         SELECT br.ballot_submission_id, COUNT(*)::int AS ranking_depth
         FROM ballot_rankings br
         JOIN ballot_submissions bs ON bs.ballot_submission_id = br.ballot_submission_id
-        ${electionFilter}
+        ${rankingDepthFilter.sql}
         GROUP BY br.ballot_submission_id
       )
       SELECT ranking_depth, COUNT(*)::int AS ballots
       FROM depths
       GROUP BY ranking_depth
       ORDER BY ranking_depth
-    `, params);
+    `, rankingDepthFilter.params);
 
+    const transitionFilter = buildBallotWhere('bs');
     const transitionRows = await query(`
       WITH first_prefs AS (
         SELECT
@@ -445,7 +637,7 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
           ON br.ballot_submission_id = bs.ballot_submission_id
          AND br.rank_position = 1
         JOIN election_candidates ec ON ec.candidate_id = br.candidate_id
-        ${electionFilter}
+        ${transitionFilter.sql}
       ), switches AS (
         SELECT
           voter_hash,
@@ -459,8 +651,9 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
         AND previous_candidate <> new_candidate
       GROUP BY previous_candidate, new_candidate
       ORDER BY switch_count DESC
-    `, params);
+    `, transitionFilter.params);
 
+    const transitionOverTimeFilter = buildBallotWhere('bs');
     const transitionOverTimeRows = await query(`
       WITH first_prefs AS (
         SELECT
@@ -474,7 +667,7 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
           ON br.ballot_submission_id = bs.ballot_submission_id
          AND br.rank_position = 1
         JOIN election_candidates ec ON ec.candidate_id = br.candidate_id
-        ${electionFilter}
+        ${transitionOverTimeFilter.sql}
       ), switches AS (
         SELECT
           election_id,
@@ -495,8 +688,9 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
         AND previous_candidate <> new_candidate
       GROUP BY day, previous_candidate, new_candidate
       ORDER BY day, switch_count DESC
-    `, params);
+    `, transitionOverTimeFilter.params);
 
+    const traitCandidateFilter = buildBallotWhere('bs', ['bs.is_current = TRUE']);
     const traitCandidateRows = await query(`
       WITH current_first AS (
         SELECT
@@ -508,8 +702,7 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
           ON br.ballot_submission_id = bs.ballot_submission_id
          AND br.rank_position = 1
         JOIN election_candidates ec ON ec.candidate_id = br.candidate_id
-        WHERE bs.is_current = TRUE
-        ${electionId ? 'AND bs.election_id = $1' : ''}
+        ${traitCandidateFilter.sql}
       ), counts AS (
         SELECT
           CONCAT(t.trait_name, ': ', tro.option_value) AS trait_option,
@@ -545,8 +738,9 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
       FROM counts c
       JOIN totals t ON t.trait_option = c.trait_option
       ORDER BY c.trait_option, c.candidate
-    `, params);
+    `, traitCandidateFilter.params);
 
+    const associationFilter = buildBallotWhere('bs', ['bs.is_current = TRUE']);
     const associationRows = await query(`
       WITH current_first AS (
         SELECT
@@ -558,8 +752,7 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
           ON br.ballot_submission_id = bs.ballot_submission_id
          AND br.rank_position = 1
         JOIN election_candidates ec ON ec.candidate_id = br.candidate_id
-        WHERE bs.is_current = TRUE
-        ${electionId ? 'AND bs.election_id = $1' : ''}
+        ${associationFilter.sql}
       ), candidate_totals AS (
         SELECT candidate, COUNT(*)::numeric AS candidate_total
         FROM current_first
@@ -597,7 +790,7 @@ router.get('/analytics/data-science', authenticate, requireAdmin, async (req, re
       JOIN candidate_totals ct ON ct.candidate = tc.candidate
       CROSS JOIN all_total at
       ORDER BY tc.trait_option, tc.candidate
-    `, params);
+    `, associationFilter.params);
 
     res.json({
       elections: electionsWithParticipation,
