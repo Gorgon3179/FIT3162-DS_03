@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MonashVote – Results & Visualisation</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   :root {
@@ -68,9 +69,12 @@
   .trait-pill.active { background: var(--navy); color: white; border-color: var(--navy); }
   .trait-pill:hover:not(.active) { border-color: var(--blue); color: var(--blue); }
 
-  .charts-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-  .chart-panel { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); padding: 22px; }
-  .chart-title { font-size: 13px; font-weight: 600; color: var(--text); margin-bottom: 16px; }
+  .charts-row { display: grid; grid-template-columns: 1fr; gap: 20px; }
+  .chart-panel { background: white; border-radius: 16px; border: 1px solid var(--border); box-shadow: var(--shadow); padding: 22px; min-height: 320px; }
+  .chart-title { font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 18px; }
+  .chart-wrap { position: relative; height: 280px; overflow-x: auto; }
+  .chart-scroll { overflow-x: auto; padding-bottom: 8px; }
+  .chart-scroll .chart-wrap { min-width: 400px; }
 
   .not-available {
     text-align: center; padding: 60px 20px; color: var(--muted); font-size: 15px; line-height: 1.6;
@@ -217,7 +221,7 @@
       `<div class="trait-pill ${t === currentTrait ? 'active' : ''}" onclick="switchTrait('${t}')">${t}</div>`
     ).join('');
 
-    let chartsHTML = `<div class="charts-row"><div class="chart-panel"><div class="chart-title" id="chartTitle">First Preference by Trait</div><canvas id="barChart" width="280" height="220"></canvas></div></div>`;
+    let chartsHTML = `<div class="charts-row"><div class="chart-panel"><div class="chart-title" id="chartTitle">First Preference by Trait</div><div class="chart-wrap"><canvas id="barChart"></canvas></div></div></div>`;
 
     document.getElementById('resultContent').innerHTML = `
       <div class="grid">
@@ -262,6 +266,8 @@
     drawTraitChart(currentResultsData, traitName);
   }
 
+  let traitChart = null;
+
   function drawTraitChart(data, traitNameOverride) {
     if (!data && !traitNameOverride) return;
     const trait = traitNameOverride || currentTrait;
@@ -270,78 +276,80 @@
     if (!trait || !breakdown[trait]) return;
 
     const traitData = breakdown[trait];
-
-    // Get all unique candidate names across all option values
-    const candidateSet = new Set();
-    for (const [opt, candidates] of Object.entries(traitData)) {
-      for (const name of Object.keys(candidates)) {
-        candidateSet.add(name);
-      }
-    }
-    const candidates = [...candidateSet];
-
-    // Group data: each option_value is a group, each candidate is a bar
-    const optionValues = Object.keys(traitData);
-    const canvas = document.getElementById('barChart');
-    if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
     document.getElementById('chartTitle').textContent = `First Preference by ${trait}`;
 
-    const barGroupWidth = 24;
-    const gap = 4;
-    const groupGap = 12;
-    const numOptions = optionValues.length;
-    const numCandidates = candidates.length;
-    const totalWidth = numOptions * (numCandidates * barGroupWidth + groupGap);
-    const maxBarH = 160;
-    const startX = 30;
-    const baseY = 195;
+    // Collect candidates & option values
+    const candidateSet = new Set();
+    for (const opt of Object.keys(traitData)) {
+      for (const name of Object.keys(traitData[opt])) candidateSet.add(name);
+    }
+    const candidates = [...candidateSet];
+    const optionValues = Object.keys(traitData);
 
-    // Legend
-    let ly = 10;
-    candidates.forEach((c, i) => {
-      ctx.fillStyle = COLOR_PALETTE[i % COLOR_PALETTE.length];
-      ctx.fillRect(220, ly + i * 16, 10, 10);
-      ctx.fillStyle = '#6b7a99';
-      ctx.font = '10px DM Sans';
-      ctx.fillText(c, 234, ly + i * 16 + 10);
-    });
+    // Build datasets: one per candidate
+    const datasets = candidates.map((cand, i) => ({
+      label: cand,
+      data: optionValues.map(opt => traitData[opt][cand] || 0),
+      backgroundColor: COLOR_PALETTE[i % COLOR_PALETTE.length],
+      borderRadius: 4,
+      borderSkipped: false,
+      barPercentage: 0.75,
+      categoryPercentage: 0.85,
+    }));
 
-    // Find max vote
-    let globalMax = 1;
-    for (const opt of optionValues) {
-      for (const cand of candidates) {
-        const val = traitData[opt][cand] || 0;
-        if (val > globalMax) globalMax = val;
-      }
+    // Destroy old chart
+    if (traitChart) { traitChart.destroy(); traitChart = null; }
+
+    const canvas = document.getElementById('barChart');
+    if (!canvas) return;
+
+    // Adjust container width for many groups
+    const needsScroll = optionValues.length > 5 || candidates.length > 4;
+    const wrap = canvas.closest('.chart-wrap');
+    if (wrap) {
+      wrap.style.minWidth = needsScroll ? `${Math.max(400, optionValues.length * 70)}px` : '';
     }
 
-    // Draw grouped bars
-    optionValues.forEach((opt, oi) => {
-      const groupX = startX + oi * (numCandidates * (barGroupWidth + gap) + groupGap);
-      candidates.forEach((cand, ci) => {
-        const val = traitData[opt][cand] || 0;
-        const x = groupX + ci * (barGroupWidth + gap);
-        const h = (val / globalMax) * maxBarH;
-        ctx.fillStyle = COLOR_PALETTE[ci % COLOR_PALETTE.length];
-        ctx.beginPath();
-        ctx.roundRect(x, baseY - h, barGroupWidth, h, [4, 4, 0, 0]);
-        ctx.fill();
-        if (val > 0) {
-          ctx.fillStyle = '#1a2233';
-          ctx.font = '600 9px DM Sans';
-          ctx.textAlign = 'center';
-          ctx.fillText(val, x + barGroupWidth / 2, baseY - h - 4);
-        }
-      });
-      // Option label
-      ctx.fillStyle = '#6b7a99';
-      ctx.font = '10px DM Sans';
-      ctx.textAlign = 'center';
-      const shortLabel = opt.length > 10 ? opt.slice(0, 9) + '…' : opt;
-      ctx.fillText(shortLabel, groupX + (numCandidates * (barGroupWidth + gap) - gap) / 2, baseY + 14);
+    traitChart = new Chart(canvas, {
+      type: 'bar',
+      data: {
+        labels: optionValues.map(o => o.length > 14 ? o.slice(0, 13) + '…' : o),
+        datasets
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: {
+            position: 'top',
+            labels: { boxWidth: 12, font: { size: 11, family: "'DM Sans', sans-serif" }, padding: 12, usePointStyle: true }
+          },
+          tooltip: {
+            backgroundColor: '#002a5c',
+            titleFont: { size: 12, family: "'DM Sans', sans-serif" },
+            bodyFont: { size: 11, family: "'DM Sans', sans-serif" },
+            padding: 10,
+            cornerRadius: 8,
+            callbacks: {
+              label: (ctx) => ` ${ctx.dataset.label}: ${ctx.parsed.y} vote${ctx.parsed.y !== 1 ? 's' : ''}`
+            }
+          }
+        },
+        scales: {
+          x: {
+            grid: { display: false },
+            ticks: { font: { size: 10, family: "'DM Sans', sans-serif" }, maxRotation: 45, minRotation: 0 }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: { precision: 0, font: { size: 10, family: "'DM Sans', sans-serif" } },
+            grid: { color: '#edf2f7' },
+            title: { display: true, text: 'First-preference votes', font: { size: 10, family: "'DM Sans', sans-serif" } }
+          }
+        },
+        animation: { duration: 600, easing: 'easeOutQuart' }
+      }
     });
   }
 
