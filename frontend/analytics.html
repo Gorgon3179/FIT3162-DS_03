@@ -186,7 +186,7 @@
       <!-- 2. Voting Momentum — renamed from "Zoomable Stacked Voting Momentum" -->
       <div class="ds-card wide">
         <h3>Voting Momentum Over Time</h3>
-        <p>Cumulative first-preference submissions per candidate. Scroll horizontally if there are many days of data.</p>
+        <p>Cumulative ranked-choice points per candidate. Rank 1 gives the most points and the bottom rank gives 1 point.</p>
         <div class="scroll-chart"><div class="ds-chart-wrap tall"><canvas id="dsStackedMomentum"></canvas></div></div>
       </div>
 
@@ -350,7 +350,7 @@
     try {
       const path = electionId ? `/api/admin/analytics/data-science?electionId=${encodeURIComponent(electionId)}` : '/api/admin/analytics/data-science';
       const d = await apiFetch(path);
-      renderDsSelect(d.elections||[], electionId);
+      renderDsSelect(d.elections||[], d.selectedElectionId || electionId);
       renderDailyActivity(d.dailyActivity||[]);
       renderStackedMomentum(d.stackedMomentum||[]);
       renderCandidateSupport(d.candidateSupport||[]);
@@ -365,10 +365,15 @@
   }
 
   function renderDsSelect(elections, selectedId) {
-    const s = el('dsElectionSelect'); if (!s || s.dataset.ready==='true') return;
-    s.innerHTML = '<option value="">All elections</option>' + elections.map(e=>`<option value="${e.id}" ${String(e.id)===String(selectedId)?'selected':''}>${e.title}</option>`).join('');
-    s.addEventListener('change', () => loadDataScienceVisuals(s.value));
-    s.dataset.ready = 'true';
+    const s = el('dsElectionSelect'); if (!s) return;
+    const selected = selectedId || (elections[0] ? elections[0].id : '');
+    s.innerHTML = elections.length
+      ? elections.map(e=>`<option value="${e.id}" ${String(e.id)===String(selected)?'selected':''}>${e.title}</option>`).join('')
+      : '<option value="">No elections available</option>';
+    if (s.dataset.ready !== 'true') {
+      s.addEventListener('change', () => loadDataScienceVisuals(s.value));
+      s.dataset.ready = 'true';
+    }
   }
 
   function dc(id) { if (dsCharts[id]) { dsCharts[id].destroy(); delete dsCharts[id]; } }
@@ -399,8 +404,8 @@
     canvas.style.width = `${Math.max(900, days.length*80)}px`;
     dsCharts.dsStackedMomentum = new Chart(canvas, {
       type:'line',
-      data:{ labels:days.map(fd), datasets:candidates.map((c,i)=>({ label:c, data:days.map(d=>{ const f=rows.find(r=>r.day===d&&r.candidate===c); return f?Number(f.votes):0; }), backgroundColor:wa(PALETTE[i%PALETTE.length],0.3), borderColor:PALETTE[i%PALETTE.length], fill:true, tension:0.35, pointRadius:2, pointHoverRadius:5 })) },
-      options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } }, tooltip:{ backgroundColor:'#002a5c', padding:10, cornerRadius:8 } }, scales:{ x:{ stacked:true, grid:{ color:'#edf2f7' } }, y:{ stacked:true, beginAtZero:true, title:{ display:true, text:'First-preference submissions' }, ticks:{ precision:0 }, grid:{ color:'#edf2f7' } } } }
+      data:{ labels:days.map(fd), datasets:candidates.map((c,i)=>({ label:c, data:days.map(d=>{ const f=rows.find(r=>r.day===d&&r.candidate===c); return f?Number(f.cumulative_points ?? f.points ?? 0):0; }), backgroundColor:wa(PALETTE[i%PALETTE.length],0.3), borderColor:PALETTE[i%PALETTE.length], fill:true, tension:0.35, pointRadius:2, pointHoverRadius:5 })) },
+      options:{ responsive:true, maintainAspectRatio:false, interaction:{ mode:'index', intersect:false }, plugins:{ legend:{ position:'bottom', labels:{ boxWidth:12, font:{ size:11 } } }, tooltip:{ backgroundColor:'#002a5c', padding:10, cornerRadius:8 } }, scales:{ x:{ stacked:true, grid:{ color:'#edf2f7' } }, y:{ stacked:true, beginAtZero:true, title:{ display:true, text:'Cumulative ranked-choice points' }, ticks:{ precision:0 }, grid:{ color:'#edf2f7' } } } }
     });
   }
 
